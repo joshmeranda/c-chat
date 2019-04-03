@@ -4,7 +4,7 @@ LFLAGS=-I./include
 EXECUTABLE=chat
 
 # source and object files
-SRC=src/c_chat.c src/chat_socket.c
+SRC=src/c_chat.c src/chat_socket.c src/client_shell.c
 OBJ=$(SRC:.c=.o)
 
 all: $(EXECUTABLE)

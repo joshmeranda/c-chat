@@ -82,5 +82,25 @@ struct sock_info start_client(char* address, uint16_t port);
 
 void connect_client(struct sock_info sock);
 
+/* . . . . . . */
+/* Unspecific  */
+/* . . . . . . */
+
+ssize_t read_fd(int fd, char buffer[BUFFER_SIZE]);
+
+ssize_t send_fd(int fd, char* message);
+
+/**
+ * Shutdown the file descriptor.
+ *
+ * Disables all send and receive operations for the specified file descriptor.
+ *
+ * params
+ *     fd (int): the file descriptor to shut down.
+ *
+ * returns
+ *     (int): 0 if successful, otherwise exits with errno.
+ */
+int shutdown_fd(int fd);
 
 #endif // CHAT_SOCKET_H

@@ -89,3 +89,58 @@ void connect_client(struct sock_info c_sock)
         exit(EXIT_FAILURE);
     }
 }
+
+/**
+ * Read data from a file descriptor.
+ *
+ * params
+ *     fd (int): the file descriptor to read from.
+ *     buffer (char*): the character array used to store the data read.
+ *
+ * returns
+ *     (ssize_t) if successful the amount of bytes read, -1 otherwise.
+ */
+ssize_t read_fd(int fd, char buffer[BUFFER_SIZE])
+{
+    ssize_t result = read(fd, buffer, BUFFER_SIZE);
+    if (result < 0)
+    {
+        perror("read error");
+        exit(EXIT_FAILURE);
+    }
+
+    return result;
+}
+
+/**
+ * Write data to a files descriptor.
+ *
+ * params
+ *     fd (int): the file descriptor to write to
+ *     message (char*): the data to write to fd
+ *
+ * returns
+ *     (ssize_t) if successful the amoutn of bytes written, -1 otherwise.
+ */
+ssize_t send_fd(int fd, char* message)
+{
+    ssize_t result = send(fd, message, strlen(message), 0);
+
+    if (result < 0)
+    {
+        perror("send error");
+        exit(EXIT_FAILURE);
+    }
+    return result;
+}
+
+int shutdown_fd(int fd)
+{
+    if (shutdown(fd, 2) < 0)
+    {
+        perror("Shutdown filure");
+        exit(EXIT_FAILURE);
+    }
+
+    return 0;
+}

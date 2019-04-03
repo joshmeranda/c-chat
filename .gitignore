@@ -60,3 +60,6 @@ CMakeLists.txt
 
 # IDE
 idea/
+
+# valgrind
+vgcore.*
