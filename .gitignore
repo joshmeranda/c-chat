@@ -59,7 +59,7 @@ cmake-build-debug
 CMakeLists.txt
 
 # IDE
-idea/
+.idea/*
 
 # valgrind
 vgcore.*
