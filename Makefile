@@ -1,7 +1,8 @@
 CC=gcc
 CFLAGS=--all-warnings
 LFLAGS=-I./include
-EXECUTABLE=chat
+BINDIR=bin/
+EXECUTABLE=$(BINDIR)chat
 
 # source and object files
 SRC=src/c_chat.c src/chat_socket.c src/client_shell.c

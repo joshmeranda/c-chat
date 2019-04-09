@@ -8,5 +8,4 @@ char* get_prompt();
 
 void client_shell(struct sock_info *c_sock);
 
-
 #endif // CLIENT_SHELL_H

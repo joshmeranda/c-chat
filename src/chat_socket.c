@@ -102,14 +102,19 @@ void connect_client(struct sock_info c_sock)
  */
 ssize_t read_fd(int fd, char buffer[BUFFER_SIZE])
 {
-    ssize_t result = read(fd, buffer, BUFFER_SIZE);
-    if (result < 0)
+    ssize_t bytes_read = read(fd, buffer, BUFFER_SIZE);
+    if (bytes_read < 0)
     {
         perror("read error");
         exit(EXIT_FAILURE);
     }
 
-    return result;
+    if (buffer[bytes_read - 1] != '\0')
+    {
+        buffer[bytes_read] = '\0';
+    }
+
+    return bytes_read;
 }
 
 /**

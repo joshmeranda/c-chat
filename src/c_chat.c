@@ -32,10 +32,6 @@ void run_server(char* address, int port)
 
     // Set client_fd_arr and read_fds to be emtpy (all values are 0)
     for (int i = 0;i < MAX_CLIENT; i++) { client_fd_arr[i] = 0; }
-    FD_ZERO(&read_fds);
-
-    FD_SET(s_sock.fd, &read_fds);
-    int max_fd = s_sock.fd;
 
     if (listen(s_sock.fd, 1) < 0)
     {
@@ -45,6 +41,22 @@ void run_server(char* address, int port)
 
     while (1)
     {
+        FD_ZERO(&read_fds);
+
+        FD_SET(s_sock.fd, &read_fds);
+        int max_fd = s_sock.fd;
+
+        // add child sockets to fd set
+        for (int i = 0; i < MAX_CLIENT; i++)
+        {
+            if (client_fd_arr[i] > 0) {
+                FD_SET(client_fd_arr[i], &read_fds);
+
+                if (client_fd_arr[i] > max_fd) { max_fd = client_fd_arr[i]; }
+            }
+        }
+
+        // wait for a fd to become active (wait indefinitely)
         int active_fds = select(max_fd +1, &read_fds, NULL, NULL, NULL);
         if (active_fds < 0)
         {
@@ -72,6 +84,7 @@ void run_server(char* address, int port)
         {
             if (FD_ISSET(client_fd_arr[i], &read_fds))
             {
+                printf("%d is active\n", client_fd_arr[i]);
                 int bytes_read;
 
                 if ((bytes_read = read_fd(client_fd_arr[i], s_sock.buffer)) == 0)
@@ -82,9 +95,10 @@ void run_server(char* address, int port)
                 }
                 else
                 {
-                    printf("%d bytes read\n%s\n", bytes_read, s_sock.buffer);
+                    printf("%d bytes read%d -> %s\n",
+                            bytes_read, client_fd_arr[i], s_sock.buffer);
                     send_fd(client_fd_arr[i], s_sock.buffer);
-                    printf("Server sent\n");
+                    printf("Server sent %s\n", s_sock.buffer);
                 }
             }
         }
@@ -106,13 +120,6 @@ void run_client(char* address, int port)
 
     //char* snd_message = "josh";
     client_shell(&c_sock);
-
-    //send_fd(c_sock.fd, snd_message);
-    send_fd(c_sock.fd, c_sock.buffer);
-    printf("Client sent\n");
-
-    read_fd(c_sock.fd, c_sock.buffer);
-    printf("%s\n", c_sock.buffer);
 
     shutdown_fd(c_sock.fd);
 }
