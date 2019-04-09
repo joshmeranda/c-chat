@@ -119,7 +119,8 @@ void run_server(char* address, int port)
 void run_client(char* address, int port)
 {
     struct sock_info c_sock = start_client(address, (uint16_t) port);
-    int command;
+    int command,
+        connected = 0;
 
     // resad user input until they enter '.exit'
     while (1)
@@ -128,12 +129,16 @@ void run_client(char* address, int port)
         fgets(c_sock.buffer, BUFFER_SIZE, stdin);
 
         set_command(c_sock.buffer, &command);
-        printf("C: %d\nSEND = %d\n", command, SEND);
-        printf("%d\n", command == SEND);
 
         // execute commands
         if (command == SEND)
         {
+            if (! connected)
+            {
+                printf("You are not connected to anyone.\n");
+                continue;
+            }
+
             send_fd(c_sock.fd, c_sock.buffer);
         }
         else if (command == EXIT) // close connection, leave shell loop
@@ -143,12 +148,19 @@ void run_client(char* address, int port)
         }
         else if (command == CONNECT)
         {
+            if (connected)
+            {
+                printf("You are already connected\n");
+                continue;
+            }
             connect_client(c_sock);
+            connected = 1;
             continue;
         }
         else if (command == DISCONNECT) // close connection, stay in shell loop
         {
             shutdown_fd(c_sock.fd);
+            connected = 0;
             continue;
         }
         else

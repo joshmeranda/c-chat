@@ -80,6 +80,12 @@ int accept_connection(struct sock_info sock);
  */
 struct sock_info start_client(char* address, uint16_t port);
 
+/**
+ * Connect a client to a server.
+ *
+ * params
+ *     sock (sock_info): the contains the socket information.
+ */
 void connect_client(struct sock_info sock);
 
 /* . . . . . . */
