@@ -86,8 +86,28 @@ void connect_client(struct sock_info sock);
 /* Unspecific  */
 /* . . . . . . */
 
+/**
+ * Read data from a file descriptor.
+ *
+ * params
+ *     fd (int): the file descriptor to read from.
+ *     buffer (char*): the character array used to store the data read.
+ *
+ * returns
+ *     (ssize_t) if successful the amount of bytes read, -1 otherwise.
+ */
 ssize_t read_fd(int fd, char buffer[BUFFER_SIZE]);
 
+/**
+ * Write data to a files descriptor.
+ *
+ * params
+ *     fd (int): the file descriptor to write to
+ *     message (char*): the data to write to fd
+ *
+ * returns
+ *     (ssize_t) if successful the amoutn of bytes written, -1 otherwise.
+ */
 ssize_t send_fd(int fd, char* message);
 
 /**

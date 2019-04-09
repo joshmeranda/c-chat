@@ -8,6 +8,9 @@
 #include "chat_socket.h"
 #include "client_shell.h"
 
+#include <error.h>
+#include <getopt.h>
+
 #define MAX_CLIENT 10
 
 /**
@@ -84,21 +87,19 @@ void run_server(char* address, int port)
         {
             if (FD_ISSET(client_fd_arr[i], &read_fds))
             {
-                printf("%d is active\n", client_fd_arr[i]);
                 int bytes_read;
 
                 if ((bytes_read = read_fd(client_fd_arr[i], s_sock.buffer)) == 0)
                 {
-                    printf("Client [a] %s [p] %d closed the connection",
+                    printf("Client [a] %s [p] %d closed the connection\n",
                             inet_ntoa(s_sock.addr.sin_addr),
                             ntohs(s_sock.addr.sin_port));
+                    FD_CLR(client_fd_arr[i], &read_fds);
+                    client_fd_arr[i] = 0;
                 }
                 else
                 {
-                    printf("%d bytes read%d -> %s\n",
-                            bytes_read, client_fd_arr[i], s_sock.buffer);
                     send_fd(client_fd_arr[i], s_sock.buffer);
-                    printf("Server sent %s\n", s_sock.buffer);
                 }
             }
         }
@@ -108,53 +109,90 @@ void run_server(char* address, int port)
 /**
  * Create a client.
  *
+ * Runs a very simple client interface prompting for user messages to send
+ * to the server.
+ *
  * params
  *     address (char*): the IP of the target server.
- *     port (int)L the port used by the target server.
+ *     port (int): the port used by the target server.
  */
 void run_client(char* address, int port)
 {
     struct sock_info c_sock = start_client(address, (uint16_t) port);
+    int command;
 
-    connect_client(c_sock);
+    // resad user input until they enter '.exit'
+    while (1)
+    {
+        printf("%s", get_prompt());
+        fgets(c_sock.buffer, BUFFER_SIZE, stdin);
 
-    //char* snd_message = "josh";
-    client_shell(&c_sock);
+        set_command(c_sock.buffer, &command);
+        printf("C: %d\nSEND = %d\n", command, SEND);
+        printf("%d\n", command == SEND);
 
-    shutdown_fd(c_sock.fd);
+        // execute commands
+        if (command == SEND)
+        {
+            send_fd(c_sock.fd, c_sock.buffer);
+        }
+        else if (command == EXIT) // close connection, leave shell loop
+        {
+            shutdown_fd(c_sock.fd);
+            break;
+        }
+        else if (command == CONNECT)
+        {
+            connect_client(c_sock);
+            continue;
+        }
+        else if (command == DISCONNECT) // close connection, stay in shell loop
+        {
+            shutdown_fd(c_sock.fd);
+            continue;
+        }
+        else
+        {
+            printf("unrecognized command %s\n", c_sock.buffer);
+            continue;
+        }
+
+        read_fd(c_sock.fd, c_sock.buffer);
+    }
 }
 
 int main(int argc, char** argv)
 {
     enum Mode mode;
     char* address = "127.0.0.1";
-    int port = 8080;
+    int port = 8080,
+        opt_index = 1;
+    char arg;
 
-    // Parse command line arguments
-    for (int i = 1; i < argc; i++)
+    struct option long_options[] = {
+            {"address", required_argument, 0, 'a'},
+            {"port",    required_argument, 0, 'p'},
+            {0,         0,                 0, 0}
+    };
+
+    while ((arg = getopt_long(argc, argv, "a:p:",
+                              long_options, &opt_index)) > 0)
     {
-        if (strcmp(argv[i], "-a") == 0 || strcmp(argv[i], "--address") == 0)
+        switch (arg)
         {
-            address = argv[i + 1];
-            i++;
+            case 'a':
+                address = optarg;
+                break;
+            case 'p':
+                port = atoi(optarg);
         }
-        else if (strcmp(argv[i], "-p") == 0 || strcmp(argv[i], "--port") == 0)
-        {
-            port = atoi(argv[i + 1]);
-            i++;
-        }
-        else if (strcmp(argv[i], "server") == 0)
-        {
-            mode = SERVER;
-        }
-        else if (strcmp(argv[i], "client") == 0)
-        {
-            mode = CLIENT;
-        }
-        else
-        {
-            mode = -1;
-        }
+    }
+
+    for (opt_index; opt_index < argc; opt_index++)
+    {
+        if (strcmp(argv[opt_index], "client") == 0) { mode = CLIENT; }
+        else if (strcmp(argv[opt_index], "server") == 0) { mode = SERVER; }
+        else { error(0, 0, "unknown option '%s'\n", argv[opt_index]); }
     }
 
     if (mode == SERVER)
@@ -164,10 +202,5 @@ int main(int argc, char** argv)
     else if (mode == CLIENT)
     {
         run_client(address, port);
-    }
-    else if (mode == -1)
-    {
-        printf("Could not read argument for mode");
-        exit(1);
     }
 }
