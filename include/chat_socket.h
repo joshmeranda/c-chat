@@ -2,13 +2,15 @@
  * Header file for chat_sockets.
  *
  * Defines functions used to create and connect chat servers and
- * clients.s
+ * clients.
  */
 
 #ifndef CHAT_SOCKET_H
 #define CHAT_SOCKET_H
 #define PORT 8080
 #define BUFFER_SIZE 1024
+#define USERNAME_MAX 25
+#define DELIMITER "|"
 
 #include <unistd.h>
 #include <stdio.h>

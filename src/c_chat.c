@@ -6,12 +6,13 @@
  */
 
 #include "chat_socket.h"
-#include "client_shell.h"
+#include "client.h"
+#include "server.h"
 
 #include <error.h>
 #include <getopt.h>
 
-#define MAX_CLIENT 10
+#define BROADCAST "BRD"
 
 /**
  * enum used to specify the program should be run as a server of a client.
@@ -71,6 +72,9 @@ void run_server(char* address, int port)
         {
             int new_fd = accept_connection(s_sock);
             FD_SET(new_fd, &read_fds);
+            printf("Client [a] %s [p] %d connected\n",
+                   inet_ntoa(s_sock.addr.sin_addr),
+                   ntohs(s_sock.addr.sin_port));
 
             for (int i = 0; i < MAX_CLIENT; i++)
             {
@@ -87,7 +91,7 @@ void run_server(char* address, int port)
         {
             if (FD_ISSET(client_fd_arr[i], &read_fds))
             {
-                int bytes_read;
+                ssize_t bytes_read;
 
                 if ((bytes_read = read_fd(client_fd_arr[i], s_sock.buffer)) == 0)
                 {
@@ -99,7 +103,23 @@ void run_server(char* address, int port)
                 }
                 else
                 {
-                    send_fd(client_fd_arr[i], s_sock.buffer);
+                    char* packet = s_sock.buffer;
+                    char* dest = strtok(packet, DELIMITER);
+                    packet += strlen(dest);
+
+                    if (strcmp(dest, "BRD") == 0)
+                    {
+                        broadcast(packet, client_fd_arr);
+                    }
+                    else
+                    {
+                        // TODO map username to file descriptor
+                        // send to intended recipient
+                        printf("I am not broadcast\n"
+                               "Send to %s\n"
+                               "%s\n", dest, packet);
+                    }
+                    // send_fd(client_fd_arr[i], packet);
                 }
             }
         }
@@ -122,15 +142,19 @@ void run_client(char* address, int port)
     int command,
         connected = 0;
 
-    // resad user input until they enter '.exit'
+    // read user input until they enter '.exit'
     while (1)
     {
+        char dest[USERNAME_MAX],  // message recipient
+             src[USERNAME_MAX];   // message sender
+
         printf("%s", get_prompt());
         fgets(c_sock.buffer, BUFFER_SIZE, stdin);
+        c_sock.buffer[strcspn(c_sock.buffer, "\n")] = '\0';
 
         set_command(c_sock.buffer, &command);
 
-        // execute commands
+        // execute command entered by client
         if (command == SEND)
         {
             if (! connected)
@@ -138,12 +162,25 @@ void run_client(char* address, int port)
                 printf("You are not connected to anyone.\n");
                 continue;
             }
+            strcat(c_sock.buffer, DELIMITER);
 
-            send_fd(c_sock.fd, c_sock.buffer);
+            strcpy(dest, "emma|"); // TODO parse from destination variable
+            strcpy(src, "josh|");  // TODO pull from user name when implemented
+
+            size_t packet_bytes = (strlen(dest)
+                                 + strlen(src)
+                                 + strlen(c_sock
+                                 .buffer));
+            char packet[packet_bytes];
+            memset(packet, 0, packet_bytes);
+
+            form_packet(dest, src, c_sock.buffer, packet);
+
+            send_fd(c_sock.fd, packet);
         }
         else if (command == EXIT) // close connection, leave shell loop
         {
-            shutdown_fd(c_sock.fd);
+            if (connected) { shutdown_fd(c_sock.fd); }
             break;
         }
         else if (command == CONNECT)
@@ -159,17 +196,21 @@ void run_client(char* address, int port)
         }
         else if (command == DISCONNECT) // close connection, stay in shell loop
         {
-            shutdown_fd(c_sock.fd);
+            if (connected) { shutdown_fd(c_sock.fd); }
             connected = 0;
             continue;
         }
         else
         {
-            printf("unrecognized command %s\n", c_sock.buffer);
+            printf("unsupported command %s\n", c_sock.buffer);
             continue;
         }
 
-        read_fd(c_sock.fd, c_sock.buffer);
+        // read data from serve if there is data to be read
+        if (server_data(c_sock.fd))
+        {
+            read_fd(c_sock.fd, c_sock.buffer);
+        }
     }
 }
 
