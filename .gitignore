@@ -61,5 +61,6 @@ CMakeLists.txt
 # IDE
 .idea/*
 
-# valgrind
+# Debugging files and scripts
 vgcore.*
+*.gdb

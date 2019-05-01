@@ -25,13 +25,15 @@ enum Mode { SERVER, CLIENT };
  * params
  *     address (char*): the IP address for the server.
  *     port (int): the port used by the server.
- */
+s */
 void run_server(char* address, int port)
 {
     // server socket information
     struct sock_info s_sock = start_server(address, (uint16_t) port);
 
     int client_fd_arr[MAX_CLIENT];
+    char* user_arr[MAX_CLIENT];
+
     fd_set read_fds;
 
     // Set client_fd_arr and read_fds to be emtpy (all values are 0)
@@ -91,9 +93,7 @@ void run_server(char* address, int port)
         {
             if (FD_ISSET(client_fd_arr[i], &read_fds))
             {
-                ssize_t bytes_read;
-
-                if ((bytes_read = read_fd(client_fd_arr[i], s_sock.buffer)) == 0)
+                if (read_fd(client_fd_arr[i], s_sock.buffer) == 0)
                 {
                     printf("Client [a] %s [p] %d closed the connection\n",
                             inet_ntoa(s_sock.addr.sin_addr),
@@ -114,7 +114,6 @@ void run_server(char* address, int port)
                     else
                     {
                         // TODO map username to file descriptor
-                        // send to intended recipient
                         printf("I am not broadcast\n"
                                "Send to %s\n"
                                "%s\n", dest, packet);
@@ -136,22 +135,24 @@ void run_server(char* address, int port)
  *     address (char*): the IP of the target server.
  *     port (int): the port used by the target server.
  */
-void run_client(char* address, int port)
+void run_client(char* address, int port, char* username)
 {
     struct sock_info c_sock = start_client(address, (uint16_t) port);
     int command,
         connected = 0;
+    char* src = username;
 
     // read user input until they enter '.exit'
     while (1)
     {
-        char dest[USERNAME_MAX],  // message recipient
-             src[USERNAME_MAX];   // message sender
+        char dest[USERNAME_MAX];
+        memset(dest, 0, USERNAME_MAX);
+        dest[0] = '\0';
 
         printf("%s", get_prompt());
         fgets(c_sock.buffer, BUFFER_SIZE, stdin);
-        c_sock.buffer[strcspn(c_sock.buffer, "\n")] = '\0';
 
+        c_sock.buffer[strcspn(c_sock.buffer, "\n")] = '\0';
         set_command(c_sock.buffer, &command);
 
         // execute command entered by client
@@ -164,13 +165,13 @@ void run_client(char* address, int port)
             }
             strcat(c_sock.buffer, DELIMITER);
 
-            strcpy(dest, "emma|"); // TODO parse from destination variable
-            strcpy(src, "josh|");  // TODO pull from user name when implemented
+            strcpy(dest, "emma"); // TODO parse from destination variable
+
 
             size_t packet_bytes = (strlen(dest)
-                                 + strlen(src)
-                                 + strlen(c_sock
-                                 .buffer));
+                                   + strlen(src)
+                                   + strlen(c_sock.buffer)
+                                   );
             char packet[packet_bytes];
             memset(packet, 0, packet_bytes);
 
@@ -192,6 +193,19 @@ void run_client(char* address, int port)
             }
             connect_client(c_sock);
             connected = 1;
+            char* message = "MESSAGE";
+            strcpy(dest, "USERNAME");
+
+            size_t packet_bytes = (strlen(dest)
+                                   + strlen(src)
+                                   + strlen(c_sock.buffer)
+                                   );
+
+            char packet[packet_bytes];
+            memset(packet, 0 ,packet_bytes);
+
+            form_packet(dest, src, message, packet);
+            send_fd(c_sock.fd, username);
             continue;
         }
         else if (command == DISCONNECT) // close connection, stay in shell loop
@@ -217,18 +231,20 @@ void run_client(char* address, int port)
 int main(int argc, char** argv)
 {
     enum Mode mode;
-    char* address = "127.0.0.1";
+    char* address = "127.0.0.1",
+          *username = "GUEST";
     int port = 8080,
-        opt_index = 1;
-    char arg;
+        opt_index = 1,
+        arg;
 
     struct option long_options[] = {
-            {"address", required_argument, 0, 'a'},
-            {"port",    required_argument, 0, 'p'},
+            {"address",  required_argument, 0, 'a'},
+            {"port",     required_argument, 0, 'p'},
+            {"username", required_argument, 0, 'u'},
             {0,         0,                 0, 0}
     };
 
-    while ((arg = getopt_long(argc, argv, "a:p:",
+    while ((arg = getopt_long(argc, argv, "a:p:u:",
                               long_options, &opt_index)) > 0)
     {
         switch (arg)
@@ -238,6 +254,8 @@ int main(int argc, char** argv)
                 break;
             case 'p':
                 port = atoi(optarg);
+            case 'u':
+                username = optarg;
         }
     }
 
@@ -254,6 +272,6 @@ int main(int argc, char** argv)
     }
     else if (mode == CLIENT)
     {
-        run_client(address, port);
+        run_client(address, port, username);
     }
 }

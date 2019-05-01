@@ -1,6 +1,6 @@
 CC=gcc
-CFLAGS=--all-warnings
-LFLAGS=-I./include
+CFLAGS=-Wall -g
+LFLAGS=-I./include -g
 BINDIR=bin/
 EXECUTABLE=$(BINDIR)chat
 

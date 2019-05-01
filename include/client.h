@@ -77,4 +77,4 @@ char* form_packet(char* to, char* from, char* message, char* packet);
  */
 int server_data(int fd);
 
-#endif // CLIENT_SHELL_Hs
+#endif // CLIENT_SHELL_H

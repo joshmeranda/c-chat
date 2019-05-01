@@ -24,10 +24,12 @@ void set_command(char* input, int* command)
     *command = i;
 }
 
-char* form_packet(char* to, char* from, char* message, char* packet)
+char* form_packet(char* dest, char* src, char* message, char* packet)
 {
-    strcat(packet, to);
-    strcat(packet, from);
+    strcat(packet, dest);
+    strcat(packet, DELIMITER);
+    strcat(packet, src);
+    strcat(packet, DELIMITER);
     strcat(packet, message);
     return packet;
 }
