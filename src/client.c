@@ -31,6 +31,7 @@ char* form_packet(char* dest, char* src, char* message, char* packet)
     strcat(packet, src);
     strcat(packet, DELIMITER);
     strcat(packet, message);
+    printf("packet : %s", packet);
     return packet;
 }
 

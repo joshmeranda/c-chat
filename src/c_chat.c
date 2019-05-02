@@ -25,7 +25,7 @@ enum Mode { SERVER, CLIENT };
  * params
  *     address (char*): the IP address for the server.
  *     port (int): the port used by the server.
-s */
+ */
 void run_server(char* address, int port)
 {
     // server socket information
@@ -103,20 +103,28 @@ void run_server(char* address, int port)
                 }
                 else
                 {
+                    // Get the packet destination
                     char* packet = s_sock.buffer;
-                    char* dest = strtok(packet, DELIMITER);
-                    packet += strlen(dest);
+                    int dest_len = strcspn(packet, DELIMITER);
+                    char dest[USERNAME_MAX];
+                    memset(dest, 0, USERNAME_MAX);
 
-                    if (strcmp(dest, "BRD") == 0)
+                    strncpy(dest, packet, dest_len);
+                    packet = &packet[dest_len + 1];
+
+                    if (strcmp(dest, "USERNAME") == 0)
+                    {
+                        printf("New user '%s'", dest);
+                    }
+                    else if (strcmp(dest, "BRD") == 0)
                     {
                         broadcast(packet, client_fd_arr);
                     }
                     else
                     {
                         // TODO map username to file descriptor
-                        printf("I am not broadcast\n"
-                               "Send to %s\n"
-                               "%s\n", dest, packet);
+                        printf("  dest : %s\n"
+                               "packet : %s\n", dest, packet);
                     }
                     // send_fd(client_fd_arr[i], packet);
                 }
@@ -147,7 +155,6 @@ void run_client(char* address, int port, char* username)
     {
         char dest[USERNAME_MAX];
         memset(dest, 0, USERNAME_MAX);
-        dest[0] = '\0';
 
         printf("%s", get_prompt());
         fgets(c_sock.buffer, BUFFER_SIZE, stdin);
@@ -205,7 +212,7 @@ void run_client(char* address, int port, char* username)
             memset(packet, 0 ,packet_bytes);
 
             form_packet(dest, src, message, packet);
-            send_fd(c_sock.fd, username);
+            send_fd(c_sock.fd, packet);
             continue;
         }
         else if (command == DISCONNECT) // close connection, stay in shell loop
@@ -274,4 +281,6 @@ int main(int argc, char** argv)
     {
         run_client(address, port, username);
     }
+
+    //TODO start thread for client reading
 }
