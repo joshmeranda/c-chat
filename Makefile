@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS=-Wall -g
-LFLAGS=-I./include -g
+LFLAGS=-I./include -g -Wall
 BINDIR=bin/
 EXECUTABLE=$(BINDIR)chat
 
@@ -11,7 +11,7 @@ OBJ=$(SRC:.c=.o)
 all: $(EXECUTABLE)
 
 $(EXECUTABLE): $(OBJ)
-	$(CC) $(LFLAGS) $(CFLAGS) $(OBJ) -o $@ -lm
+	$(CC) $(CFLAGS) $(OBJ) -o $@ -lm
 
 %.o: %.c
 	$(CC) $(LFLAGS) -c $< -o $@
