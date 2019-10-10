@@ -13,6 +13,10 @@ void run_server(char* address, int port)
     // server socket information
     struct sock_info s_sock = start_server(address, (uint16_t) port);
 
+    printf("Server [a] %s [p] %d open\n",
+           inet_ntoa(s_sock.addr.sin_addr),
+           ntohs(s_sock.addr.sin_port));
+
     int client_fd_arr[MAX_CLIENT];
     char* user_arr[MAX_CLIENT];
 

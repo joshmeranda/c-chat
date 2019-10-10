@@ -20,11 +20,9 @@ struct sock_info start_server(char* address, uint16_t port)
         exit(EXIT_FAILURE);
     }
     s_sock.addr.sin_family = AF_INET; // TODO AF_UNIX ?
-    s_sock.addr.sin_addr.s_addr = INADDR_ANY; /*
-                                                 * TODO specify the address
-                                                 * See client.c for inet_pton
-                                                 */
-    s_sock.addr.sin_port = htons( PORT ); // TODO allow for specifying port
+    // s_sock.addr.sin_addr.s_addr = INADDR_ANY;
+    inet_pton(AF_INET, address, &s_sock.addr.sin_addr);
+    s_sock.addr.sin_port = htons(port);
 
     // Forcefully attaching socket to the port 8080
     if (bind(s_sock.fd, (struct sockaddr *) &s_sock.addr,
@@ -68,10 +66,9 @@ struct sock_info start_client(char* address, uint16_t port)
     bzero(&c_sock.addr, sizeof(c_sock.addr));
 
     c_sock.addr.sin_family = AF_INET;
-    c_sock.addr.sin_port = htons(PORT); // TODO allow for specifying ports
+    c_sock.addr.sin_port = htons(port);
 
-    // TODO allow for specifying the address
-    if (inet_pton(AF_INET, "127.0.0.1", &c_sock.addr.sin_addr) <= 0)
+    if (inet_pton(AF_INET, address, &c_sock.addr.sin_addr) <= 0)
     {
         perror("Invalid / unsupported address");
         exit(EXIT_FAILURE);
