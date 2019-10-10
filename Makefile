@@ -1,11 +1,8 @@
 CC=gcc
 CFLAGS=-Wall -g
 LFLAGS=-I./include -g -Wall
-BINDIR=bin/
-EXECUTABLE=$(BINDIR)chat
-
-# source and object files
-SRC=src/c_chat.c src/chat_socket.c src/client.c src/server.c
+EXECUTABLE=chat
+SRC=$(addprefix src/, c_chat.c chat_socket.c client.c server.c)
 OBJ=$(SRC:.c=.o)
 
 all: $(EXECUTABLE)
@@ -19,6 +16,4 @@ $(EXECUTABLE): $(OBJ)
 clear: clean
 
 clean:
-	@echo "=== Cleaning ==="
 	rm -fv $(OBJ) $(EXECUTABLE)
-	@echo "=== DONE ==="

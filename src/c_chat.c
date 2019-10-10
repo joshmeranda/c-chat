@@ -1,10 +1,3 @@
-/**
- * Main file for the c_chat program.
- *
- * Parses command line arguments, creates and connects chat servers and
- * clients.
- */
-
 #include "chat_socket.h"
 #include "client.h"
 #include "server.h"
@@ -12,236 +5,17 @@
 #include <error.h>
 #include <getopt.h>
 
-#define BROADCAST "BRD"
-
 /**
- * enum used to specify the program should be run as a server of a client.
+ * Enum for the possible modes for the chat.
  */
 enum Mode { SERVER, CLIENT };
 
-/**
- * Create a server.
- *
- * params
- *     address (char*): the IP address for the server.
- *     port (int): the port used by the server.
- */
-void run_server(char* address, int port)
-{
-    // server socket information
-    struct sock_info s_sock = start_server(address, (uint16_t) port);
-
-    int client_fd_arr[MAX_CLIENT];
-    char* user_arr[MAX_CLIENT];
-
-    fd_set read_fds;
-
-    // Set client_fd_arr and read_fds to be emtpy (all values are 0)
-    for (int i = 0;i < MAX_CLIENT; i++) { client_fd_arr[i] = 0; }
-
-    if (listen(s_sock.fd, 1) < 0)
-    {
-        perror("listen");
-        exit(EXIT_FAILURE);
-    }
-
-    while (1)
-    {
-        FD_ZERO(&read_fds);
-
-        FD_SET(s_sock.fd, &read_fds);
-        int max_fd = s_sock.fd;
-
-        // add child sockets to fd set
-        for (int i = 0; i < MAX_CLIENT; i++)
-        {
-            if (client_fd_arr[i] > 0) {
-                FD_SET(client_fd_arr[i], &read_fds);
-
-                if (client_fd_arr[i] > max_fd) { max_fd = client_fd_arr[i]; }
-            }
-        }
-
-        // wait for a fd to become active (wait indefinitely)
-        int active_fds = select(max_fd +1, &read_fds, NULL, NULL, NULL);
-        if (active_fds < 0)
-        {
-            perror("select failure");
-            exit(EXIT_FAILURE);
-        }
-
-        if (FD_ISSET(s_sock.fd, &read_fds))
-        {
-            int new_fd = accept_connection(s_sock);
-            FD_SET(new_fd, &read_fds);
-            printf("Client [a] %s [p] %d connected\n",
-                   inet_ntoa(s_sock.addr.sin_addr),
-                   ntohs(s_sock.addr.sin_port));
-
-            for (int i = 0; i < MAX_CLIENT; i++)
-            {
-                if (client_fd_arr[i] == 0)
-                {
-                    client_fd_arr[i] = new_fd;
-                    FD_SET(new_fd, &read_fds);
-                    break;
-                }
-            }
-        }
-
-        for (int i = 0; i < MAX_CLIENT; i++)
-        {
-            if (FD_ISSET(client_fd_arr[i], &read_fds))
-            {
-                if (read_fd(client_fd_arr[i], s_sock.buffer) == 0)
-                {
-                    printf("Client [a] %s [p] %d closed the connection\n",
-                            inet_ntoa(s_sock.addr.sin_addr),
-                            ntohs(s_sock.addr.sin_port));
-                    FD_CLR(client_fd_arr[i], &read_fds);
-                    client_fd_arr[i] = 0;
-                }
-                else
-                {
-                    // Get the packet destination
-                    char* packet = s_sock.buffer;
-                    int dest_len = strcspn(packet, DELIMITER);
-                    char dest[USERNAME_MAX];
-                    memset(dest, 0, USERNAME_MAX);
-
-                    strncpy(dest, packet, dest_len);
-                    packet = &packet[dest_len + 1];
-
-                    if (strcmp(dest, "USERNAME") == 0)
-                    {
-                        printf("New user '%s'", dest);
-                    }
-                    else if (strcmp(dest, "BRD") == 0)
-                    {
-                        broadcast(packet, client_fd_arr);
-                    }
-                    else
-                    {
-                        // TODO map username to file descriptor
-                        printf("  dest : %s\n"
-                               "packet : %s\n", dest, packet);
-                    }
-                    // send_fd(client_fd_arr[i], packet);
-                }
-            }
-        }
-    }
-}
-
-/**
- * Create a client.
- *
- * Runs a very simple client interface prompting for user messages to send
- * to the server.
- *
- * params
- *     address (char*): the IP of the target server.
- *     port (int): the port used by the target server.
- */
-void run_client(char* address, int port, char* username)
-{
-    struct sock_info c_sock = start_client(address, (uint16_t) port);
-    int command,
-        connected = 0;
-    char* src = username;
-
-    // read user input until they enter '.exit'
-    while (1)
-    {
-        char dest[USERNAME_MAX];
-        memset(dest, 0, USERNAME_MAX);
-
-        printf("%s", get_prompt());
-        fgets(c_sock.buffer, BUFFER_SIZE, stdin);
-
-        c_sock.buffer[strcspn(c_sock.buffer, "\n")] = '\0';
-        set_command(c_sock.buffer, &command);
-
-        // execute command entered by client
-        if (command == SEND)
-        {
-            if (! connected)
-            {
-                printf("You are not connected to anyone.\n");
-                continue;
-            }
-            strcat(c_sock.buffer, DELIMITER);
-
-            strcpy(dest, "emma"); // TODO parse from destination variable
-
-
-            size_t packet_bytes = (strlen(dest)
-                                   + strlen(src)
-                                   + strlen(c_sock.buffer)
-                                   );
-            char packet[packet_bytes];
-            memset(packet, 0, packet_bytes);
-
-            form_packet(dest, src, c_sock.buffer, packet);
-
-            send_fd(c_sock.fd, packet);
-        }
-        else if (command == EXIT) // close connection, leave shell loop
-        {
-            if (connected) { shutdown_fd(c_sock.fd); }
-            break;
-        }
-        else if (command == CONNECT)
-        {
-            if (connected)
-            {
-                printf("You are already connected\n");
-                continue;
-            }
-            connect_client(c_sock);
-            connected = 1;
-            char* message = "MESSAGE";
-            strcpy(dest, "USERNAME");
-
-            size_t packet_bytes = (strlen(dest)
-                                   + strlen(src)
-                                   + strlen(c_sock.buffer)
-                                   );
-
-            char packet[packet_bytes];
-            memset(packet, 0 ,packet_bytes);
-
-            form_packet(dest, src, message, packet);
-            send_fd(c_sock.fd, packet);
-            continue;
-        }
-        else if (command == DISCONNECT) // close connection, stay in shell loop
-        {
-            if (connected) { shutdown_fd(c_sock.fd); }
-            connected = 0;
-            continue;
-        }
-        else
-        {
-            printf("unsupported command %s\n", c_sock.buffer);
-            continue;
-        }
-
-        // read data from serve if there is data to be read
-        if (server_data(c_sock.fd))
-        {
-            read_fd(c_sock.fd, c_sock.buffer);
-        }
-    }
-}
-
 int main(int argc, char** argv)
 {
-    enum Mode mode;
+    enum Mode mode = CLIENT;
     char* address = "127.0.0.1",
           *username = "GUEST";
     int port = 8080,
-        opt_index = 1,
         arg;
 
     struct option long_options[] = {
@@ -251,8 +25,7 @@ int main(int argc, char** argv)
             {0,         0,                 0, 0}
     };
 
-    while ((arg = getopt_long(argc, argv, "a:p:u:",
-                              long_options, &opt_index)) > 0)
+    while ((arg = getopt_long(argc, argv, "a:p:u:", long_options, 0)) > 0)
     {
         switch (arg)
         {
@@ -261,25 +34,37 @@ int main(int argc, char** argv)
                 break;
             case 'p':
                 port = atoi(optarg);
+                break;
             case 'u':
                 username = optarg;
+                break;
+            default:
+                return 1; // Stop execution upon unknown command
         }
     }
 
-    for (opt_index; opt_index < argc; opt_index++)
+    for (; optind < argc; optind++)
     {
-        if (strcmp(argv[opt_index], "client") == 0) { mode = CLIENT; }
-        else if (strcmp(argv[opt_index], "server") == 0) { mode = SERVER; }
-        else { error(0, 0, "unknown option '%s'\n", argv[opt_index]); }
+        if (strcmp(argv[optind], "client") == 0)
+        {
+            mode = CLIENT;
+        } else if (strcmp(argv[optind], "server") == 0)
+        {
+            mode = SERVER;
+        } else {
+            error(0, 0, "unknown option '%s'\n", argv[optind]);
+        }
     }
 
-    if (mode == SERVER)
+    switch (mode)
     {
-        run_server(address, port);
-    }
-    else if (mode == CLIENT)
-    {
-        run_client(address, port, username);
+        case SERVER:
+            run_server(address, port);
+            break;
+        case CLIENT: // CLIENT is the default mode
+        default:
+            run_client(address, port, username);
+            break;
     }
 
     //TODO start thread for client reading

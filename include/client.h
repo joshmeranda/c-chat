@@ -2,7 +2,6 @@
 #define CLIENT_SHELL_H
 
 #include "chat_socket.h"
-
 #include <stdio.h>
 
 enum command_types
@@ -31,50 +30,49 @@ static char* command_arr[] =
 };
 
 /**
- * Get the prompt for the user.
+ * Generate the prompt for user input.
  *
- * returns
- *     (char*): the prompt for the user.
+ * @return The prompt for the user.
  */
 char* get_prompt();
 
 /**
- * Set the value of command form user input.
+ * Set the value of the command to the corresponding value in the
+ * command_types enum. The input is compared to the string values in
+ * command_arr, and command is set to be the corresponding values found in
+ * command_types.
  *
- * All commands begin with a single '.' character. If no command is
- * entered by the user, the command SEND is assumed and returned.
- *
- * params
- *     input (char*): the user input to test.
+ * @param input The user input to test.
  */
-void set_command(char* input, int* i);
+void set_command(char* input, int* command);
 
 /**
- * Form the message packet to send to the server.
+ * Form the message to be sent to the server. Packet joins arguments into the
+ * packet arg delimited by the null byte.
  *
- * Packet is in the format '<to>\0<from>\0<data>\0'
- *
- * params
- *     to (char*): the intended recipient.
- *     from (char*): the message sender.
- *     message (char*): the message to be sent.
- *     packet (char*): variable to store the string.
- *
- * returns:
- *     (char*): the final packet to be sent by the client.
+ * @param to The username of the desired recipient.
+ * @param from The username of the sender.
+ * @param message The message to be sent in the packet.
+ * @param packet The pointer to the final packet.
+ * @return The pointer to the resultant packet.
  */
 char* form_packet(char* to, char* from, char* message, char* packet);
 
 /**
  * Determine if there is data to be read from the server.
  *
- * params
- *     fd (int): the file descriptor for the sever.
- *
- * returns
- *     (int): 0 if nothing to read, non-negative number if something to
- *     rea, -1 if error.
+ * @param fd The file descriptor for the server.
+ * @return The amount of bytes available to be read, or -1 if error
  */
 int server_data(int fd);
+
+/**
+ * Crease and run a chat client.
+ *
+ * @param address The address of the server to connect to.
+ * @param port The port of the server to connect to.
+ * @param username The username to be used during the session.
+ */
+void run_client(char* address, int port, char* username);
 
 #endif // CLIENT_SHELL_H

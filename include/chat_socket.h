@@ -1,12 +1,6 @@
-/**
- * Header file for chat_sockets.
- *
- * Defines functions used to create and connect chat servers and
- * clients.
- */
-
 #ifndef CHAT_SOCKET_H
 #define CHAT_SOCKET_H
+
 #define PORT 8080
 #define BUFFER_SIZE 1024
 #define USERNAME_MAX 25
@@ -21,13 +15,10 @@
 #include <string.h>
 
 /**
- * Wrapper struct for sockaddr_in and a file descriptor.
- *
- * members
- *     addr (sockaddr_in): socket addresss information.
- *     fd (int): file descriptor for the socket.
- *     buffer (char*): buffer for reading and writing to sockets
+ * Describes a connected socket.
  */
+typedef struct sock_info sock_info;
+
 struct sock_info
 {
     struct sockaddr_in addr;
@@ -35,99 +26,62 @@ struct sock_info
     char buffer[BUFFER_SIZE];
 };
 
-/* . . . . . . . . . */
-/* Server Functions  */
-/* . . . . . . . . . */
-
 /**
- * Create the socket used by the server.
+ * Create an IPv4 TCP socket for the server.
  *
- * Currently set to SOCK_STREAM and IPv4.
- *
- * params
- *     address (char*): the address used during socket creation.
- *     port (int): the port used during socket creation.
- *
- * returns
- *     (sock_info): contains information needed by other server functions.
+ * @param address The address for the server.
+ * @param port The port for the server.
+ * @return The sock_info describing the server socket.
  */
 struct sock_info start_server(char* address, uint16_t port);
 
 /**
- * Start listening for and accepting client connections.
+ * Listen for and accept client connections.
  *
- * params
- *     sock {sock_info)): socket used to generate client file descriptor.
- *
- * returns
- *     (int): the file descriptor for the client.
+ * @param sock Socket to use whe creating the client file descriptor.
+ * @return The file descriptor for the client.
  */
 int accept_connection(struct sock_info sock);
 
-
-/* . . . . . . . . . */
-/* Client Functions  */
-/* . . . . . . . . . */
-
 /**
- * Create the socket used by the client.
+ * Create an IPv4 TCP socket for the client.
  *
- * Currently set to SOCK_STREAM an IPv4
- *
- * params
- *     address (char*): address of the server to connect to
- *     port (int): the port used by the server to connect to
- *
- *
+ * @param address Address of the server to connect to.
+ * @param port The port of the server to connect to.
+ * @return The sock_info describing the client socket.
  */
 struct sock_info start_client(char* address, uint16_t port);
 
 /**
  * Connect a client to a server.
  *
- * params
- *     sock (sock_info): the contains the socket information.
+ * @param sock The sock_info of the client.
  */
 void connect_client(struct sock_info sock);
-
-/* . . . . . . */
-/* Unspecific  */
-/* . . . . . . */
 
 /**
  * Read data from a file descriptor.
  *
- * params
- *     fd (int): the file descriptor to read from.
- *     buffer (char*): the character array used to store the data read.
- *
- * returns
- *     (ssize_t) if successful the amount of bytes read, -1 otherwise.
+ * @param fd The file descriptor to read dat from.
+ * @param buffer The buffer to store the data in.
+ * @return The amount of characters read into the buffer, or -1 on error.
  */
 ssize_t read_fd(int fd, char buffer[BUFFER_SIZE]);
 
 /**
- * Write data to a files descriptor.
+ * Write data to a file descriptor.
  *
- * params
- *     fd (int): the file descriptor to write to
- *     message (char*): the data to write to fd
- *
- * returns
- *     (ssize_t) if successful the amoutn of bytes written, -1 otherwise.
+ * @param fd The file descriptor to write to.
+ * @param message The data to write to the file descriptor.
+ * @return The amount of data written to the file descriptor, or -1 on error.
  */
 ssize_t send_fd(int fd, char* message);
 
 /**
- * Shutdown the file descriptor.
+ * Shutdown a file descriptor.
  *
- * Disables all send and receive operations for the specified file descriptor.
- *
- * params
- *     fd (int): the file descriptor to shut down.
- *
- * returns
- *     (int): 0 if successful, otherwise exits with errno.
+ * @param fd The file descriptor to shut down.
+ * @return 0 if successful, -1 if failure.
  */
 int shutdown_fd(int fd);
 

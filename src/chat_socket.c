@@ -96,7 +96,7 @@ ssize_t read_fd(int fd, char buffer[BUFFER_SIZE])
     if (bytes_read < 0)
     {
         perror("read error");
-        exit(EXIT_FAILURE);
+        return bytes_read;
     }
 
     if (buffer[bytes_read - 1] != '\0')
@@ -114,8 +114,8 @@ ssize_t send_fd(int fd, char* message)
     if (result < 0)
     {
         perror("send error");
-        exit(EXIT_FAILURE);
     }
+
     return result;
 }
 
@@ -123,8 +123,8 @@ int shutdown_fd(int fd)
 {
     if (shutdown(fd, 2) < 0)
     {
-        perror("Shutdown filure");
-        exit(EXIT_FAILURE);
+        perror("Shutdown failure");
+        return -1;
     }
 
     return 0;
