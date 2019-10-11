@@ -19,6 +19,7 @@ void run_server(char* address, int port)
 
     int client_fd_arr[MAX_CLIENT];
     char* user_arr[MAX_CLIENT];
+    memset(user_arr, 0, MAX_CLIENT * sizeof(char*));
 
     fd_set read_fds;
 
@@ -88,21 +89,27 @@ void run_server(char* address, int port)
                            ntohs(s_sock.addr.sin_port));
                     FD_CLR(client_fd_arr[i], &read_fds);
                     client_fd_arr[i] = 0;
+                    free(user_arr[i]);
                 }
                 else
                 {
-                    // Get the packet destination
                     char* packet = s_sock.buffer;
-                    int dest_len = strcspn(packet, DELIMITER);
-                    char dest[USERNAME_MAX];
-                    memset(dest, 0, USERNAME_MAX);
+                    int dest_len = strcspn(packet, DELIMITER) + 1;
+                    char* dest = (char*) malloc(dest_len);
 
                     strncpy(dest, packet, dest_len);
-                    packet = &packet[dest_len + 1];
+                    dest[dest_len - 1] = '\0';
+                    packet = &packet[dest_len];
 
                     if (strcmp(dest, "USERNAME") == 0)
                     {
-                        printf("New user '%s'", dest);
+                        // store the remainder of packet as the username
+                        dest_len = strcspn(packet, DELIMITER) + 1;
+                        user_arr[i] = (char*) malloc(dest_len);
+                        strcpy(user_arr[i], packet);
+                        user_arr[i][dest_len - 1] = '\0';
+
+                        printf("New user '%s'\n", user_arr[i]);
                     }
                     else if (strcmp(dest, "BRD") == 0)
                     {
@@ -110,11 +117,17 @@ void run_server(char* address, int port)
                     }
                     else
                     {
-                        // TODO map username to file descriptor
-                        printf("  dest : %s\n"
-                               "packet : %s\n", dest, packet);
+                        for (int j = 0; j < MAX_CLIENT; j++) {
+                            if (strcmp(user_arr[j], dest) == 0) {
+                                send_fd(client_fd_arr[j], packet);
+                                break;
+                            }
+                        }
+
+                        printf("  dest : %s\npacket : %s\n", dest, packet);
                     }
-                    // send_fd(client_fd_arr[i], packet);
+
+                    free(dest);
                 }
             }
         }

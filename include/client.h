@@ -16,19 +16,6 @@ enum command_types
     LIST
 };
 
-static char* command_arr[] =
-{
-    ".send",
-    ".exit",
-    ".help",
-    ".connect",
-    ".disconnect",
-    ".broadcast",
-    ".dest",
-    ".list",
-    "\0"
-};
-
 /**
  * Generate the prompt for user input.
  *
@@ -50,13 +37,13 @@ void set_command(char* input, int* command);
  * Form the message to be sent to the server. Packet joins arguments into the
  * packet arg delimited by the null byte.
  *
- * @param to The username of the desired recipient.
- * @param from The username of the sender.
+ * @param dest The username of the desired recipient.
+ * @param src The username of the sender.
  * @param message The message to be sent in the packet.
  * @param packet The pointer to the final packet.
  * @return The pointer to the resultant packet.
  */
-char* form_packet(char* to, char* from, char* message, char* packet);
+char* form_message_packet(char *to, char *from, char *message, char *packet);
 
 /**
  * Determine if there is data to be read from the server.

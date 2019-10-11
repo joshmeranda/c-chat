@@ -14,6 +14,19 @@ void set_command(char* input, int* command)
         return;
     }
 
+    char* command_arr[] =
+            {
+                    ".send",
+                    ".exit",
+                    ".help",
+                    ".connect",
+                    ".disconnect",
+                    ".broadcast",
+                    ".dest",
+                    ".list",
+                    "\0"
+            };
+
     // Search through the available commands for the matching value
     for (int i = 0; strcmp(command_arr[i], "\0") != 0; i++)
     {
@@ -25,7 +38,7 @@ void set_command(char* input, int* command)
     }
 }
 
-char* form_packet(char* dest, char* src, char* message, char* packet)
+char* form_message_packet(char *dest, char *src, char *message, char *packet)
 {
     strcat(packet, dest);
     strcat(packet, DELIMITER);
@@ -34,6 +47,14 @@ char* form_packet(char* dest, char* src, char* message, char* packet)
     strcat(packet, message);
     // printf("packet : %s", packet);
 
+    return packet;
+}
+
+char* form_username_packet(char* dest, char* username, char* packet) {
+    strcat(packet, dest);
+    strcat(packet, DELIMITER);
+    strcat(packet, username);
+    strcat(packet, DELIMITER);
     return packet;
 }
 
@@ -51,8 +72,7 @@ int server_data(int fd)
 void run_client(char* address, int port, char* username)
 {
     struct sock_info c_sock = start_client(address, (uint16_t) port);
-    int command,
-            connected = 0;
+    int command, connected = 0;
     char* src = username;
 
     // read user input until they enter '.exit'
@@ -87,7 +107,7 @@ void run_client(char* address, int port, char* username)
             char packet[packet_bytes];
             memset(packet, 0, packet_bytes);
 
-            form_packet(dest, src, c_sock.buffer, packet);
+            form_message_packet(dest, src, c_sock.buffer, packet);
 
             send_fd(c_sock.fd, packet);
         }
@@ -105,7 +125,8 @@ void run_client(char* address, int port, char* username)
             }
             connect_client(c_sock);
             connected = 1;
-            char* message = "MESSAGE";
+
+            // send message to notify the server of a new message
             strcpy(dest, "USERNAME");
 
             size_t packet_bytes = (strlen(dest)
@@ -116,7 +137,7 @@ void run_client(char* address, int port, char* username)
             char packet[packet_bytes];
             memset(packet, 0 ,packet_bytes);
 
-            form_packet(dest, src, message, packet);
+            form_username_packet(dest, src, packet);
             send_fd(c_sock.fd, packet);
             continue;
         }
@@ -132,7 +153,7 @@ void run_client(char* address, int port, char* username)
             continue;
         }
 
-        // read data from serve if there is data to be read
+        // read data from server if there is data to be read
         if (server_data(c_sock.fd))
         {
             read_fd(c_sock.fd, c_sock.buffer);
