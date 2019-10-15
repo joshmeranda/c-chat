@@ -62,4 +62,8 @@ int server_data(int fd);
  */
 void run_client(char* address, int port, char* username);
 
+void client_write(sock_info c_sock, char *username);
+
+void client_read(sock_info c_sock);
+
 #endif // CLIENT_SHELL_H

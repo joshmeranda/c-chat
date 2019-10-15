@@ -1,7 +1,6 @@
 #ifndef CHAT_SOCKET_H
 #define CHAT_SOCKET_H
 
-#define PORT 8080
 #define BUFFER_SIZE 1024
 #define USERNAME_MAX 25
 #define DELIMITER "|"
@@ -13,6 +12,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <string.h>
+#include <aio.h>
 
 /**
  * Describes a connected socket.

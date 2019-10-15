@@ -110,6 +110,11 @@ void run_server(char* address, int port)
                         user_arr[i][dest_len - 1] = '\0';
 
                         printf("New user '%s'\n", user_arr[i]);
+
+                        // Temporary code to ensure client reading from server.
+                        char* new_user_msg = strdup("YOU ARE NOW CONNECTED");
+                        send_fd(client_fd_arr[i], new_user_msg);
+                        free(new_user_msg);
                     }
                     else if (strcmp(dest, "BRD") == 0)
                     {
@@ -118,7 +123,9 @@ void run_server(char* address, int port)
                     else
                     {
                         for (int j = 0; j < MAX_CLIENT; j++) {
-                            if (strcmp(user_arr[j], dest) == 0) {
+                            if (user_arr[j] == NULL) {
+                                continue;
+                            } else if (strcmp(user_arr[j], dest) == 0) {
                                 send_fd(client_fd_arr[j], packet);
                                 break;
                             }

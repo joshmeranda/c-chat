@@ -1,4 +1,5 @@
 #include "client.h"
+#include <wait.h>
 
 char* get_prompt()
 {
@@ -63,8 +64,8 @@ int server_data(int fd)
     fd_set read_fds;
     FD_SET(fd, &read_fds);
     struct timeval timeout;
-    timeout.tv_sec = 0;
-    timeout.tv_usec = 0;
+    timeout.tv_sec = 1;
+    timeout.tv_usec = 1;
 
     return select(fd, &read_fds, NULL, NULL, &timeout);
 }
@@ -72,8 +73,36 @@ int server_data(int fd)
 void run_client(char* address, int port, char* username)
 {
     struct sock_info c_sock = start_client(address, (uint16_t) port);
-    int command, connected = 0;
-    char* src = username;
+
+    client_write(c_sock, username);
+
+    // // TODO wait to start reading until the client has connected to the server
+    // rpid = fork();
+    //
+    // if (rpid == 0)
+    // {
+    //     client_read(c_sock);
+    // }
+    // else
+    // {
+    //     wpid = fork();
+    //
+    //     if (wpid == 0)
+    //     {
+    //         client_write(c_sock, username);
+    //     }
+    //     else
+    //     {
+    //         wait(&rpid);
+    //         kill(wpid, SIGABRT);
+    //     }
+    // }
+}
+
+void client_write(sock_info c_sock, char* username) {
+    char cmd_str[BUFFER_SIZE];
+    int r_pid = -1, command, connected = 0;
+    char *src = username;
 
     // read user input until they enter '.exit'
     while (1)
@@ -82,10 +111,10 @@ void run_client(char* address, int port, char* username)
         memset(dest, 0, USERNAME_MAX);
 
         printf("%s", get_prompt());
-        fgets(c_sock.buffer, BUFFER_SIZE, stdin);
+        fgets(cmd_str, BUFFER_SIZE, stdin);
 
-        c_sock.buffer[strcspn(c_sock.buffer, "\n")] = '\0';
-        set_command(c_sock.buffer, &command);
+        cmd_str[strcspn(cmd_str, "\n")] = '\0';
+        set_command(cmd_str, &command);
 
         // execute command entered by client
         if (command == SEND)
@@ -95,19 +124,14 @@ void run_client(char* address, int port, char* username)
                 printf("You are not connected to anyone.\n");
                 continue;
             }
-            strcat(c_sock.buffer, DELIMITER);
 
             strcpy(dest, "alice"); // TODO parse from destination variable
 
-
-            size_t packet_bytes = (strlen(dest)
-                                   + strlen(src)
-                                   + strlen(c_sock.buffer)
-            );
+            size_t packet_bytes = (strlen(dest) + strlen(src) + strlen(cmd_str));
             char packet[packet_bytes];
             memset(packet, 0, packet_bytes);
 
-            form_message_packet(dest, src, c_sock.buffer, packet);
+            form_message_packet(dest, src, cmd_str, packet);
 
             send_fd(c_sock.fd, packet);
         }
@@ -123,6 +147,21 @@ void run_client(char* address, int port, char* username)
                 printf("You are already connected\n");
                 continue;
             }
+
+            // Fork now that write process has begun
+            r_pid = fork();
+            printf("%d\n", r_pid);
+            if (r_pid == 0)
+            {
+                client_read(c_sock);
+                break;
+            }
+            else if (r_pid == -1)
+            {
+                printf("Could not start the read process");
+                continue;
+            }
+
             connect_client(c_sock);
             connected = 1;
 
@@ -139,24 +178,47 @@ void run_client(char* address, int port, char* username)
 
             form_username_packet(dest, src, packet);
             send_fd(c_sock.fd, packet);
-            continue;
+
+            read_fd(c_sock.fd, packet);
+            printf("%s\n", packet);
         }
         else if (command == DISCONNECT) // close connection, stay in shell loop
         {
             if (connected) { shutdown_fd(c_sock.fd); }
             connected = 0;
+
+            kill(r_pid, SIGABRT);
+            r_pid = -1;
             continue;
         }
         else
         {
             printf("unsupported command %s\n", c_sock.buffer);
-            continue;
+            // continue
+            break;
         }
 
         // read data from server if there is data to be read
-        if (server_data(c_sock.fd))
+        // read_fd(c_sock.fd, c_sock.buffer);
+        // printf("read : %s\n", c_sock.buffer);
+    }
+}
+
+void client_read(sock_info c_sock) {
+    int bytes_read = 0;
+
+    while (1) {
+        bytes_read = read_fd(c_sock.fd, c_sock.buffer);
+
+        if (bytes_read == 0)
         {
-            read_fd(c_sock.fd, c_sock.buffer);
+            continue;
         }
+        else if (bytes_read < 0)
+        {
+            break;
+        }
+
+        printf("RECEIVED: %s\n", c_sock.buffer);
     }
 }

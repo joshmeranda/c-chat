@@ -8,7 +8,7 @@ OBJ=$(SRC:.c=.o)
 all: $(EXECUTABLE)
 
 $(EXECUTABLE): $(OBJ)
-	$(CC) $(CFLAGS) $(OBJ) -o $@
+	$(CC) -lrt $(CFLAGS) $(OBJ) -o $@
 
 %.o: %.c
 	$(CC) $(LFLAGS) -c $< -o $@

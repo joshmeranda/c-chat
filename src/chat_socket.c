@@ -1,8 +1,9 @@
 #include "chat_socket.h"
+#include <aio.h>
 
-struct sock_info start_server(char* address, uint16_t port)
+sock_info start_server(char* address, uint16_t port)
 {
-    struct sock_info s_sock;
+    sock_info s_sock;
     int opt = 1;
 
     // Creating socket file descriptor
@@ -35,7 +36,7 @@ struct sock_info start_server(char* address, uint16_t port)
     return s_sock;
 }
 
-int accept_connection(struct sock_info s_sock)
+int accept_connection(sock_info s_sock)
 {
     int client_fd,
         address_size = sizeof(s_sock.addr);
@@ -51,9 +52,9 @@ int accept_connection(struct sock_info s_sock)
     return client_fd;
 }
 
-struct sock_info start_client(char* address, uint16_t port)
+sock_info start_client(char* address, uint16_t port)
 {
-    struct sock_info c_sock;
+    sock_info c_sock;
 
     // create the socket
     if ((c_sock.fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
@@ -77,7 +78,7 @@ struct sock_info start_client(char* address, uint16_t port)
     return c_sock;
 }
 
-void connect_client(struct sock_info c_sock)
+void connect_client(sock_info c_sock)
 {
     if (connect(c_sock.fd, (struct sockaddr *) &c_sock.addr,
                 sizeof(c_sock.addr)) < 0)
@@ -90,10 +91,13 @@ void connect_client(struct sock_info c_sock)
 ssize_t read_fd(int fd, char buffer[BUFFER_SIZE])
 {
     ssize_t bytes_read = read(fd, buffer, BUFFER_SIZE);
+
     if (bytes_read < 0)
     {
         perror("read error");
         return bytes_read;
+    } else if (bytes_read == 0) {
+        return 0;
     }
 
     if (buffer[bytes_read - 1] != '\0')
@@ -118,6 +122,7 @@ ssize_t send_fd(int fd, char* message)
 
 int shutdown_fd(int fd)
 {
+    close(fd);
     if (shutdown(fd, 2) < 0)
     {
         perror("Shutdown failure");
