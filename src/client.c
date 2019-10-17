@@ -126,8 +126,10 @@ void disconnect_client(int fd, pthread_t th)
 ssize_t client_send(int fd, char* dest, char* src, char* msg) {
     size_t packet_bytes = (strlen(dest) + strlen(src) + strlen(msg));
     char* packet = malloc(packet_bytes);
+
     form_packet(dest, src, msg, packet);
     packet_bytes = send_fd(fd, packet);
+
     free(packet);
     return packet_bytes;
 }

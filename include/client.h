@@ -55,15 +55,30 @@ char* form_packet(char *to, char *from, char *message, char *packet);
 void run_client(char* address, int port, char* username);
 
 /**
+ * Disconnect the client and end the thread reading input from the socket.
+ *
+ * @param fd The file descriptor to close.
+ * @param th The thread ID to close.
+ */
+void disconnect_client(int fd, pthread_t th);
+
+/**
+ * Form and send a packet to the server.
+ *
+ * @param fd The file descriptor associated with the socket.
+ * @param dest The destination username to send the packet to.
+ * @param src The source username of the packet.
+ * @param msg The message to send.
+ * @return The amount of bytes sent over the server.
+ */
+ssize_t client_send(int fd, char* dest, char* src, char* msg);
+
+/**
  * Continually read incoming data from the connected socket.
  *
  * @param sock The socket from which to read data.
  * @return Returns null.
  */
 void *client_read(void *c_sock);
-
-void disconnect_client(int fd, pthread_t t_th);
-
-ssize_t client_send(int fd, char* dest, char* src, char* msg);
 
 #endif // CLIENT_SHELL_H

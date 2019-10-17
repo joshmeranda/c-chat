@@ -1,6 +1,6 @@
 #include "server.h"
 
-void broadcast(char* message, int* client_fd_arr)
+void broadcast(char *message, int *client_fd_arr)
 {
     for (int i = 0; i < MAX_CLIENT; i++)
     {
@@ -8,7 +8,7 @@ void broadcast(char* message, int* client_fd_arr)
     }
 }
 
-void run_server(char* address, int port)
+void run_server(char *address, int port)
 {
     // server socket information
     struct sock_info s_sock = start_server(address, (uint16_t) port);
@@ -35,20 +35,7 @@ void run_server(char* address, int port)
     // Look through file descriptors for received data or new connections
     while (1)
     {
-        FD_ZERO(&read_fds);
-
-        FD_SET(s_sock.fd, &read_fds);
-        int max_fd = s_sock.fd;
-
-        // add child sockets to fd set
-        for (int i = 0; i < MAX_CLIENT; i++)
-        {
-            if (client_fd_arr[i] > 0) {
-                FD_SET(client_fd_arr[i], &read_fds);
-
-                if (client_fd_arr[i] > max_fd) { max_fd = client_fd_arr[i]; }
-            }
-        }
+        int max_fd = prepare_fd_set(client_fd_arr, &read_fds, s_sock.fd);
 
         // wait for a fd to become active (wait indefinitely)
         int active_fds = select(max_fd +1, &read_fds, NULL, NULL, NULL);
@@ -68,6 +55,7 @@ void run_server(char* address, int port)
                    inet_ntoa(s_sock.addr.sin_addr),
                    ntohs(s_sock.addr.sin_port));
 
+            // look for first empty location in array.
             for (int i = 0; i < MAX_CLIENT; i++)
             {
                 if (client_fd_arr[i] == 0)
@@ -79,6 +67,8 @@ void run_server(char* address, int port)
             }
         }
 
+
+        // loop through all stored fds to look for those found by select
         for (int i = 0; i < MAX_CLIENT; i++)
         {
             if (FD_ISSET(client_fd_arr[i], &read_fds))
@@ -104,18 +94,7 @@ void run_server(char* address, int port)
 
                     if (strcmp(dest, "USERNAME") == 0)
                     {
-                        // store the remainder of packet as the username
-                        dest_len = strcspn(packet, DELIMITER) + 1;
-                        user_arr[i] = (char*) malloc(dest_len);
-                        strcpy(user_arr[i], packet);
-                        user_arr[i][dest_len - 1] = '\0';
-
-                        printf("New user '%s'\n", user_arr[i]);
-
-                        // Temporary code to ensure client reading from server.
-                        char* new_user_msg = strdup("YOU ARE NOW CONNECTED");
-                        send_fd(client_fd_arr[i], new_user_msg);
-                        free(new_user_msg);
+                        handle_new_user(&user_arr[i], client_fd_arr[i], packet);
                     }
                     else if (strcmp(dest, "BRD") == 0)
                     {
@@ -123,16 +102,7 @@ void run_server(char* address, int port)
                     }
                     else
                     {
-                        for (int j = 0; j < MAX_CLIENT; j++) {
-                            if (user_arr[j] == NULL) {
-                                continue;
-                            } else if (strcmp(user_arr[j], dest) == 0) {
-                                send_fd(client_fd_arr[j], packet);
-                                break;
-                            }
-                        }
-
-                        printf("  dest : %s\npacket : %s\n", dest, packet);
+                        handle_user_to_user(client_fd_arr, user_arr, packet, dest);
                     }
 
                     free(dest);
@@ -140,4 +110,49 @@ void run_server(char* address, int port)
             }
         }
     }
+}
+
+int prepare_fd_set(int *fd_arr, fd_set *set, int sock_fd)
+{
+    int max_fd = sock_fd;
+
+    // clear and add all relevant fds to the set
+    FD_ZERO(set);
+    FD_SET(sock_fd, set);
+    for (int i = 0; i < MAX_CLIENT; i++)
+    {
+        FD_SET(fd_arr[i], set);
+
+        if (fd_arr[i] > max_fd) max_fd = fd_arr[i];
+    }
+
+    return max_fd;
+}
+
+void handle_user_to_user(int *fd_arr, char **user_arr, char *packet, char *dest)
+{
+    // iterate through user_arr to find username matching dest
+    for (int i = 0; i < MAX_CLIENT; i++) {
+        if (user_arr[i] == NULL) {
+            continue;
+        }
+        else if (strcmp(user_arr[i], dest) == 0)
+        {
+            send_fd(fd_arr[i], packet);
+            break;
+        }
+    }
+}
+
+void handle_new_user(char **username, int fd, char *packet)
+{
+    int dest_len = strcspn(packet, DELIMITER) + 1;
+    *username = (char*) malloc(dest_len);
+    strcpy(*username, packet); // strncpy might break shit
+    (*username)[dest_len - 1] = '\0';
+
+    // Reply to new user with welcome message
+    char* new_user_msg = strdup("Welcome to my server!!!");
+    send_fd(fd, new_user_msg);
+    free(new_user_msg);
 }
