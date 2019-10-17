@@ -4,6 +4,8 @@
 
 #include <error.h>
 #include <getopt.h>
+#include <stdlib.h>
+#include <string.h>
 
 /**
  * Enum for the possible modes for the chat.
@@ -66,6 +68,4 @@ int main(int argc, char** argv)
             run_client(address, port, username);
             break;
     }
-
-    //TODO start thread for client reading
 }

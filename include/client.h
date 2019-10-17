@@ -2,7 +2,6 @@
 #define CLIENT_SHELL_H
 
 #include "chat_socket.h"
-#include <stdio.h>
 
 enum command_types
 {

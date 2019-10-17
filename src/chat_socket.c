@@ -1,5 +1,9 @@
 #include "chat_socket.h"
-#include <aio.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <arpa/inet.h>
 
 sock_info start_server(char* address, uint16_t port)
 {

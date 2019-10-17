@@ -5,14 +5,7 @@
 #define USERNAME_MAX 25
 #define DELIMITER "|"
 
-#include <unistd.h>
-#include <stdio.h>
-#include <sys/socket.h>
-#include <stdlib.h>
 #include <netinet/in.h>
-#include <arpa/inet.h>
-#include <string.h>
-#include <aio.h>
 
 /**
  * Describes a connected socket.

@@ -1,4 +1,8 @@
 #include "server.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <arpa/inet.h>
 
 void broadcast(char *message, int *client_fd_arr)
 {
