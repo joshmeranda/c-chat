@@ -1,6 +1,7 @@
 #include "client.h"
 #include <wait.h>
 #include <pthread.h>
+#include <stdarg.h>
 
 char* get_prompt()
 {
@@ -40,15 +41,37 @@ void set_command(char* input, int* command)
     }
 }
 
-char* form_packet(char *dest, char *src, char *message, char *packet)
+char* form_packet(char **packet, ...)
 {
-    strcat(packet, dest);
-    strcat(packet, DELIMITER);
-    strcat(packet, src);
-    strcat(packet, DELIMITER);
-    strcat(packet, message);
+    va_list args;
+    int packet_len= 0;
+    char *arg;
 
-    return packet;
+    // get the length of the packet
+    va_start(args, packet);
+    arg = va_arg(args, char*);
+    while (arg != NULL)
+    {
+        packet_len += strlen(arg) + 1; // length of section with DELIMITER
+        arg = va_arg(args, char*);
+    }
+    va_end(args);
+
+    // allocate space for the packet
+    *packet = (char *) malloc(packet_len);
+
+    // form the packet
+    va_start(args, packet);
+    arg = va_arg(args, char*);
+    while (arg != NULL)
+    {
+        strcat(*packet, arg);
+        strcat(*packet, DELIMITER);
+        arg = va_arg(args, char*);
+    }
+    va_end(args);
+
+    return *packet;
 }
 
 void run_client(char* address, int port, char* username)
@@ -103,7 +126,7 @@ void run_client(char* address, int port, char* username)
             // Start new thread for reading from socket
             pthread_create(&r_th, NULL, client_read, &c_sock);
 
-            client_send(c_sock.fd, "USERNAME", src, c_sock.buffer);
+            client_send(c_sock.fd, "USERNAME", src, NULL);
         }
         else if (command == DISCONNECT) // close connection, stay in shell loop
         {
@@ -114,7 +137,7 @@ void run_client(char* address, int port, char* username)
         }
         else
         {
-            printf("unsupported command %s\n", c_sock.buffer);
+            printf("unsupported command %s\n", cmd_str);
         }
     }
 }
@@ -126,14 +149,20 @@ void disconnect_client(int fd, pthread_t th)
 }
 
 ssize_t client_send(int fd, char* dest, char* src, char* msg) {
-    size_t packet_bytes = (strlen(dest) + strlen(src) + strlen(msg));
-    char* packet = malloc(packet_bytes);
+    char* packet;
 
-    form_packet(dest, src, msg, packet);
-    packet_bytes = send_fd(fd, packet);
+    if (msg != NULL)
+    {
+        form_packet(&packet, dest, src, msg, NULL);
+    }
+    else
+    {
+        form_packet(&packet, dest, src, NULL);
+    }
+    int bytes_sent = send_fd(fd, packet);
 
     free(packet);
-    return packet_bytes;
+    return bytes_sent;
 }
 
 void *client_read(void *sock) {

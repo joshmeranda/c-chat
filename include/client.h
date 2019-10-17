@@ -34,16 +34,13 @@ char* get_prompt();
 void set_command(char* input, int* command);
 
 /**
- * Form the message to be sent to the server. Packet joins arguments into the
- * packet arg delimited by the null byte.
+ * Form the packet to send to the server. The argument list must end in NULL.
  *
- * @param dest The username of the desired recipient.
- * @param src The username of the sender.
- * @param message The message to be sent in the packet.
- * @param packet The pointer to the final packet.
- * @return The pointer to the resultant packet.
+ * @param packet Pointer to the packet string.
+ * @param ... The values for the sections of tha packet.
+ * @return
  */
-char* form_packet(char *to, char *from, char *message, char *packet);
+char* form_packet(char **packet, ...);
 
 /**
  * Create and run a chat client.
