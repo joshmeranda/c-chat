@@ -53,7 +53,8 @@ char* form_packet(char *dest, char *src, char *message, char *packet)
 
 void run_client(char* address, int port, char* username)
 {
-    sock_info c_sock = start_client(address, (uint16_t) port);
+    // sock_info c_sock = start_client(address, (uint16_t) port);
+    sock_info c_sock;
     char cmd_str[BUFFER_SIZE];
     int command, connected = 0;
     char *src = username;
@@ -94,6 +95,7 @@ void run_client(char* address, int port, char* username)
                 printf("You are already connected\n");
                 continue;
             }
+            c_sock = start_client(address, (uint16_t) port);
 
             connect_client(c_sock);
             connected = 1;

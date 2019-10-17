@@ -81,6 +81,7 @@ void run_server(char *address, int port)
                     FD_CLR(client_fd_arr[i], &read_fds);
                     client_fd_arr[i] = 0;
                     free(user_arr[i]);
+                    user_arr[i] = NULL;
                 }
                 else
                 {
