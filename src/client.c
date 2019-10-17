@@ -4,7 +4,7 @@
 
 char* get_prompt()
 {
-    return " $> ";
+    return "$> ";
 }
 
 void set_command(char* input, int* command)
@@ -40,56 +40,20 @@ void set_command(char* input, int* command)
     }
 }
 
-char* form_message_packet(char *dest, char *src, char *message, char *packet)
+char* form_packet(char *dest, char *src, char *message, char *packet)
 {
     strcat(packet, dest);
     strcat(packet, DELIMITER);
     strcat(packet, src);
     strcat(packet, DELIMITER);
     strcat(packet, message);
-    // printf("packet : %s", packet);
 
-    return packet;
-}
-
-char* form_username_packet(char* dest, char* username, char* packet) {
-    strcat(packet, dest);
-    strcat(packet, DELIMITER);
-    strcat(packet, username);
-    strcat(packet, DELIMITER);
     return packet;
 }
 
 void run_client(char* address, int port, char* username)
 {
-    struct sock_info c_sock = start_client(address, (uint16_t) port);
-
-    client_write(c_sock, username);
-
-    // // TODO wait to start reading until the client has connected to the server
-    // rpid = fork();
-    //
-    // if (rpid == 0)
-    // {
-    //     client_read(c_sock);
-    // }
-    // else
-    // {
-    //     wpid = fork();
-    //
-    //     if (wpid == 0)
-    //     {
-    //         client_write(c_sock, username);
-    //     }
-    //     else
-    //     {
-    //         wait(&rpid);
-    //         kill(wpid, SIGABRT);
-    //     }
-    // }
-}
-
-void client_write(sock_info c_sock, char* username) {
+    sock_info c_sock = start_client(address, (uint16_t) port);
     char cmd_str[BUFFER_SIZE];
     int command, connected = 0;
     char *src = username;
@@ -116,19 +80,11 @@ void client_write(sock_info c_sock, char* username) {
                 continue;
             }
 
-            strcpy(dest, "alice"); // TODO parse from destination variable
-
-            size_t packet_bytes = (strlen(dest) + strlen(src) + strlen(cmd_str));
-            char packet[packet_bytes];
-            memset(packet, 0, packet_bytes);
-
-            form_message_packet(dest, src, cmd_str, packet);
-
-            send_fd(c_sock.fd, packet);
+            client_send(c_sock.fd, "alice", src, cmd_str);
         }
         else if (command == EXIT) // close connection, leave shell loop
         {
-            if (connected) { shutdown_fd(c_sock.fd); }
+            if (connected) disconnect_client(c_sock.fd, r_th);
             break;
         }
         else if (command == CONNECT)
@@ -139,47 +95,41 @@ void client_write(sock_info c_sock, char* username) {
                 continue;
             }
 
-            // Start new thread for reading from socket
-            pthread_create(&r_th, NULL, client_read, &c_sock);
-
             connect_client(c_sock);
             connected = 1;
 
-            // send message to notify the server of a new message
-            strcpy(dest, "USERNAME");
+            // Start new thread for reading from socket
+            pthread_create(&r_th, NULL, client_read, &c_sock);
 
-            size_t packet_bytes = (strlen(dest)
-                                   + strlen(src)
-                                   + strlen(c_sock.buffer)
-            );
-
-            char packet[packet_bytes];
-            memset(packet, 0 ,packet_bytes);
-
-            form_username_packet(dest, src, packet);
-            send_fd(c_sock.fd, packet);
-
-            read_fd(c_sock.fd, packet);
-            printf("%s\n", packet);
+            client_send(c_sock.fd, "USERNAME", src, c_sock.buffer);
         }
         else if (command == DISCONNECT) // close connection, stay in shell loop
         {
             if (connected) {
-                shutdown_fd(c_sock.fd);
-                pthread_join(r_th, NULL);
+                disconnect_client(c_sock.fd, r_th);
+                connected = 0;
             }
-
-            connected = 0;
-
-            continue;
         }
         else
         {
             printf("unsupported command %s\n", c_sock.buffer);
-            // continue
-            break;
         }
     }
+}
+
+void disconnect_client(int fd, pthread_t th)
+{
+    pthread_cancel(th);
+    shutdown_fd(fd);
+}
+
+ssize_t client_send(int fd, char* dest, char* src, char* msg) {
+    size_t packet_bytes = (strlen(dest) + strlen(src) + strlen(msg));
+    char* packet = malloc(packet_bytes);
+    form_packet(dest, src, msg, packet);
+    packet_bytes = send_fd(fd, packet);
+    free(packet);
+    return packet_bytes;
 }
 
 void *client_read(void *sock) {
@@ -198,7 +148,7 @@ void *client_read(void *sock) {
             break;
         }
 
-        printf("RECEIVED: %s\n", c_sock->buffer);
+        printf("%s\n", c_sock->buffer);
     }
     return NULL;
 }

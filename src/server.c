@@ -32,7 +32,7 @@ void run_server(char* address, int port)
         exit(EXIT_FAILURE);
     }
 
-    // Look through file descriptors for received data
+    // Look through file descriptors for received data or new connections
     while (1)
     {
         FD_ZERO(&read_fds);
@@ -59,6 +59,7 @@ void run_server(char* address, int port)
         }
 
 
+        // accept new connections
         if (FD_ISSET(s_sock.fd, &read_fds))
         {
             int new_fd = accept_connection(s_sock);

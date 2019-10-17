@@ -43,18 +43,10 @@ void set_command(char* input, int* command);
  * @param packet The pointer to the final packet.
  * @return The pointer to the resultant packet.
  */
-char* form_message_packet(char *to, char *from, char *message, char *packet);
+char* form_packet(char *to, char *from, char *message, char *packet);
 
 /**
- * Determine if there is data to be read from the server.
- *
- * @param fd The file descriptor for the server.
- * @return The amount of bytes available to be read, or -1 if error
- */
-int server_data(int fd);
-
-/**
- * Crease and run a chat client.
+ * Create and run a chat client.
  *
  * @param address The address of the server to connect to.
  * @param port The port of the server to connect to.
@@ -62,8 +54,16 @@ int server_data(int fd);
  */
 void run_client(char* address, int port, char* username);
 
-void client_write(sock_info c_sock, char *username);
-
+/**
+ * Continually read incoming data from the connected socket.
+ *
+ * @param sock The socket from which to read data.
+ * @return Returns null.
+ */
 void *client_read(void *c_sock);
+
+void disconnect_client(int fd, pthread_t t_th);
+
+ssize_t client_send(int fd, char* dest, char* src, char* msg);
 
 #endif // CLIENT_SHELL_H

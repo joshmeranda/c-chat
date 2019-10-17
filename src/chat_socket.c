@@ -122,8 +122,7 @@ ssize_t send_fd(int fd, char* message)
 
 int shutdown_fd(int fd)
 {
-    close(fd);
-    if (shutdown(fd, 2) < 0)
+    if (shutdown(fd, SHUT_RDWR) < 0)
     {
         perror("Shutdown failure");
         return -1;
