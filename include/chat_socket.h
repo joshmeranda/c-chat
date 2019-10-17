@@ -1,8 +1,8 @@
 #ifndef CHAT_SOCKET_H
 #define CHAT_SOCKET_H
 
-#define BUFFER_SIZE 1024
 #define USERNAME_MAX 25
+#define BUFFER_SIZE USERNAME_MAX * 2 + 3 // enough to span <src>|<dest>|<256 chars>|
 #define DELIMITER "|"
 
 #include <netinet/in.h>
