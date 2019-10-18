@@ -105,6 +105,10 @@ void run_server(char *address, int port)
                     {
                         broadcast(packet, client_fd_arr);
                     }
+                    else if (strcmp(dest, "LIST") == 0)
+                    {
+                        handle_list(client_fd_arr[i], user_arr);
+                    }
                     else
                     {
                         handle_user_to_user(client_fd_arr, user_arr, packet, dest);
@@ -160,4 +164,47 @@ void handle_new_user(char **username, int fd, char *packet)
     char* new_user_msg = strdup("Welcome to my server!!!");
     send_fd(fd, new_user_msg);
     free(new_user_msg);
+}
+
+void handle_list(int fd, char **user_arr)
+{
+    char *users;
+    int len = 0;
+
+    for (int i = 0; i < MAX_CLIENT; i++)
+    {
+        if (user_arr[i] != NULL)
+        {
+            len += strlen(user_arr[i]) + 1;
+        }
+    }
+
+    users = (char*) malloc(len);
+
+    for (int i = 0; i < MAX_CLIENT; i++)
+    {
+        if (user_arr[i] != NULL)
+        {
+            strcat(users, user_arr[i]);
+            strcat(users, ",");
+        }
+    }
+
+    users[len - 1] = '\0';
+    printf("users : %s\n", users);
+
+    // create packet
+    char *packet, *src = "SERVER";
+    len = strlen(src) + len + 2;
+    packet = (char*) malloc(len);
+
+    strcat(packet, src);
+    strcat(packet, DELIMITER);
+    strcat(packet, users);
+    strcat(packet, DELIMITER);
+
+    send_fd(fd, packet);
+
+    free(users);
+    free(packet);
 }

@@ -7,7 +7,7 @@
 
 void prompt(char *username)
 {
-    printf("%s> ", username);
+    printf("%s > ", username);
 }
 
 char* form_packet(char **packet, ...)
@@ -105,12 +105,16 @@ void run_client(char *address, int port, char *username)
 
             client_send(c_sock.fd, "USERNAME", src, NULL);
         }
-        else if (strcmp("disconnect", cmd) == 0) // close connection, stay in shell loop
+        else if (strcmp(".disconnect", cmd) == 0) // close connection, stay in shell loop
         {
             if (connected) {
                 disconnect_client(c_sock.fd, r_th);
                 connected = 0;
             }
+        }
+        else if (strcmp(".list", cmd) == 0)
+        {
+            client_send(c_sock.fd, "LIST", src, NULL);
         }
         else
         {
@@ -139,7 +143,6 @@ ssize_t client_send(int fd, char *dest, char *src, char *msg) {
         form_packet(&packet, dest, src, NULL);
     }
     int bytes_sent = send_fd(fd, packet);
-    printf("%s\n", packet);
 
     free(packet);
     return bytes_sent;
@@ -173,5 +176,6 @@ void *client_read(void *sock) {
 
         printf("%s\n", c_sock->buffer);
     }
+
     return NULL;
 }

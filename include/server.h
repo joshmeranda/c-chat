@@ -47,3 +47,11 @@ void handle_user_to_user(int *fd_arr, char **user_arr, char *packet, char *dest)
  * @param packet The packet containing the username.
  */
 void handle_new_user(char **username, int fd, char *packet);
+
+/**
+ * Reply to client with list of connected users.
+ *
+ * @param fd The file descriptor to send the reply.
+ * @param user_arr The array of connected users.
+ */
+void handle_list(int fd, char **user_arr);
