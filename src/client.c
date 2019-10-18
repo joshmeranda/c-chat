@@ -5,42 +5,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-char* get_prompt()
+void prompt(char *username)
 {
-    return "$> ";
-}
-
-void set_command(char* input, int* command)
-{
-    // if not a command default to SEND
-    if (input[0] != '.')
-    {
-        *command = SEND;
-        return;
-    }
-
-    char* command_arr[] =
-            {
-                    ".send",
-                    ".exit",
-                    ".help",
-                    ".connect",
-                    ".disconnect",
-                    ".broadcast",
-                    ".dest",
-                    ".list",
-                    "\0"
-            };
-
-    // Search through the available commands for the matching value
-    for (int i = 0; strcmp(command_arr[i], "\0") != 0; i++)
-    {
-        // command found
-        if (strcmp(command_arr[i], input) == 0) {
-            *command = i;
-            break;
-        }
-    }
+    printf("%s> ", username);
 }
 
 char* form_packet(char **packet, ...)
@@ -76,29 +43,29 @@ char* form_packet(char **packet, ...)
     return *packet;
 }
 
-void run_client(char* address, int port, char* username)
+void run_client(char *address, int port, char *username)
 {
     // sock_info c_sock = start_client(address, (uint16_t) port);
     sock_info c_sock;
-    char cmd_str[BUFFER_SIZE];
-    int command, connected = 0;
+    int connected = 0;
     char *src = username;
     pthread_t r_th;
 
     // read user input until they enter '.exit'
     while (1)
     {
-        char dest[USERNAME_MAX];
-        memset(dest, 0, USERNAME_MAX);
+        char input[1024], *cmd, *dest, *msg;
+        memset(input, 0, 1024);
 
-        printf("%s", get_prompt());
-        fgets(cmd_str, BUFFER_SIZE, stdin);
+        // get user command
+        prompt(username);
+        fgets(input, 1024, stdin);
+        input[strcspn(input, "\n")] = '\0';
 
-        cmd_str[strcspn(cmd_str, "\n")] = '\0';
-        set_command(cmd_str, &command);
+        cmd = get_next_word(input);
 
         // execute command entered by client
-        if (command == SEND)
+        if (strcmp(".send", cmd) == 0)
         {
             if (! connected)
             {
@@ -106,20 +73,28 @@ void run_client(char* address, int port, char* username)
                 continue;
             }
 
-            client_send(c_sock.fd, "alice", src, cmd_str);
+            // Parse destination and message from remainder of input
+            // assumes a singular space between command, dest, and msg
+            dest = get_next_word(&input[strlen(cmd) + 1]);
+            msg = &input[strlen(cmd) + strlen(dest) + 2];
+
+            client_send(c_sock.fd, dest, src, msg);
+
+            free(dest);
         }
-        else if (command == EXIT) // close connection, leave shell loop
+        else if (strcmp(".exit", cmd) == 0) // close connection, leave shell loop
         {
             if (connected) disconnect_client(c_sock.fd, r_th);
             break;
         }
-        else if (command == CONNECT)
+        else if (strcmp(".connect", cmd) == 0)
         {
             if (connected)
             {
                 printf("You are already connected\n");
                 continue;
             }
+            
             c_sock = start_client(address, (uint16_t) port);
 
             connect_client(c_sock);
@@ -130,7 +105,7 @@ void run_client(char* address, int port, char* username)
 
             client_send(c_sock.fd, "USERNAME", src, NULL);
         }
-        else if (command == DISCONNECT) // close connection, stay in shell loop
+        else if (strcmp("disconnect", cmd) == 0) // close connection, stay in shell loop
         {
             if (connected) {
                 disconnect_client(c_sock.fd, r_th);
@@ -139,8 +114,10 @@ void run_client(char* address, int port, char* username)
         }
         else
         {
-            printf("unsupported command %s\n", cmd_str);
+            printf("unsupported command %s\n", cmd);
         }
+
+        free(cmd);
     }
 }
 
@@ -150,7 +127,7 @@ void disconnect_client(int fd, pthread_t th)
     shutdown_fd(fd);
 }
 
-ssize_t client_send(int fd, char* dest, char* src, char* msg) {
+ssize_t client_send(int fd, char *dest, char *src, char *msg) {
     char* packet;
 
     if (msg != NULL)
@@ -162,9 +139,20 @@ ssize_t client_send(int fd, char* dest, char* src, char* msg) {
         form_packet(&packet, dest, src, NULL);
     }
     int bytes_sent = send_fd(fd, packet);
+    printf("%s\n", packet);
 
     free(packet);
     return bytes_sent;
+}
+
+char *get_next_word(char *input)
+{
+    int len = strcspn(input, " \n\0") + 1;
+    char *word = (char*) malloc(len);
+    strncpy(word, input, len);
+    word[len - 1] = '\0';
+
+    return word;
 }
 
 void *client_read(void *sock) {

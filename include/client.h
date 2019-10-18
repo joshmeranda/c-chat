@@ -20,17 +20,7 @@ enum command_types
  *
  * @return The prompt for the user.
  */
-char* get_prompt();
-
-/**
- * Set the value of the command to the corresponding value in the
- * command_types enum. The input is compared to the string values in
- * command_arr, and command is set to be the corresponding values found in
- * command_types.
- *
- * @param input The user input to test.
- */
-void set_command(char* input, int* command);
+void prompt(char *username);
 
 /**
  * Form the packet to send to the server. The argument list must end in NULL.
@@ -68,6 +58,15 @@ void disconnect_client(int fd, pthread_t th);
  * @return The amount of bytes sent over the server.
  */
 ssize_t client_send(int fd, char* dest, char* src, char* msg);
+
+/**
+ * Get the next word in a string, meaning there is a ' ' or '\n' ending the
+ * string.
+ *
+ * @param input The string to parse.
+ * @return Pointer to the null terminated word, needs to be freed after use.
+ */
+char *get_next_word(char *input);
 
 /**
  * Continually read incoming data from the connected socket.
