@@ -55,8 +55,8 @@ printf(
  */
 int client_cli(int argc, char **argv)
 {
-    char *address, *username;
-    int port, arg;
+    char *address = NULL, *username = NULL;
+    int port = -1, arg;
 
     struct option long_options[] = {
             {"help",     no_argument, 0, 'h'},
@@ -104,8 +104,8 @@ int client_cli(int argc, char **argv)
  */
 int server_cli(int argc, char **argv)
 {
-    char *address;
-    int port, arg;
+    char *address = NULL;
+    int port = -1, arg;
 
     struct option long_options[] = {
             {"help",     no_argument, 0, 'h'},

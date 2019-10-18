@@ -157,7 +157,7 @@ void handle_new_user(char **username, int fd, char *packet)
 {
     int dest_len = strcspn(packet, DELIMITER) + 1;
     *username = (char*) malloc(dest_len);
-    strcpy(*username, packet); // strncpy might break shit
+    strncpy(*username, packet, dest_len); // strncpy might break shit
     (*username)[dest_len - 1] = '\0';
 
     // Reply to new user with welcome message

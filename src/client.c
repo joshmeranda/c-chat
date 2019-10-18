@@ -13,7 +13,7 @@ void prompt(char *username)
 char* form_packet(char **packet, ...)
 {
     va_list args;
-    int packet_len= 0;
+    int packet_len = 1;
     char *arg;
 
     // get the length of the packet
@@ -28,6 +28,7 @@ char* form_packet(char **packet, ...)
 
     // allocate space for the packet
     *packet = (char *) malloc(packet_len);
+    (*packet)[0] = '\0';
 
     // form the packet
     va_start(args, packet);
@@ -49,7 +50,7 @@ void run_client(char *address, int port, char *username)
     sock_info c_sock;
     int connected = 0;
     char *src = username;
-    pthread_t r_th;
+    pthread_t r_th = -1;
 
     // read user input until they enter '.exit'
     while (1)
@@ -70,6 +71,7 @@ void run_client(char *address, int port, char *username)
             if (! connected)
             {
                 printf("You are not connected to anyone.\n");
+                free(cmd);
                 continue;
             }
 
@@ -84,7 +86,13 @@ void run_client(char *address, int port, char *username)
         }
         else if (strcmp(".exit", cmd) == 0) // close connection, leave shell loop
         {
-            if (connected) disconnect_client(c_sock.fd, r_th);
+            if (connected) {
+                disconnect_client(c_sock.fd, r_th);
+                connected = 0;
+                r_th = -1;
+            }
+
+            free(cmd);
             break;
         }
         else if (strcmp(".connect", cmd) == 0)
@@ -92,9 +100,10 @@ void run_client(char *address, int port, char *username)
             if (connected)
             {
                 printf("You are already connected\n");
+                free(cmd);
                 continue;
             }
-            
+
             c_sock = start_client(address, (uint16_t) port);
 
             connect_client(c_sock);
@@ -110,6 +119,7 @@ void run_client(char *address, int port, char *username)
             if (connected) {
                 disconnect_client(c_sock.fd, r_th);
                 connected = 0;
+                r_th = -1;
             }
         }
         else if (strcmp(".list", cmd) == 0)
