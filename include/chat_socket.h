@@ -59,7 +59,7 @@ void connect_client(struct sock_info sock);
  * @param buffer The buffer to store the data in.
  * @return The amount of characters read into the buffer, or -1 on error.
  */
-ssize_t read_fd(int fd, char buffer[BUFFER_SIZE]);
+ssize_t read_fd(int fd, char *buffer);
 
 /**
  * Write data to a file descriptor.

@@ -114,14 +114,14 @@ ssize_t read_fd(int fd, char buffer[BUFFER_SIZE])
 
 ssize_t send_fd(int fd, char* message)
 {
-    ssize_t result = send(fd, message, strlen(message), 0);
+    ssize_t bytes_sent = send(fd, message, strlen(message), 0);
 
-    if (result < 0)
+    if (bytes_sent < 0)
     {
         perror("send error");
     }
 
-    return result;
+    return bytes_sent;
 }
 
 int shutdown_fd(int fd)
