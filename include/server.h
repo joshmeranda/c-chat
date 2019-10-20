@@ -3,27 +3,39 @@
 #define MAX_CLIENT 10
 
 /**
- * Broadcast a message to all connected clients.
+ * Listen for and accept client connections.
  *
- * @param message The message to send to be broadcasted.
- * @param client_fd_arr An array of all file descriptors for the connected
- * clients.
+ * @param sock Socket to use whe creating the client file descriptor.
+ * @param env Accept a connect over ssl.
+ * @return The file descriptor for the client.
  */
-void broadcast(char* message, int* client_fd_arr);
+int accept_connection(SOCK sock, int enc);
+
+/**
+ * Create an IPv4 TCP socket for the server.
+ *
+ * @param address The address for the server.
+ * @param port The port for the server.
+ * @return The sock_info describing the server socket.
+ */
+SOCK start_server(char* address, uint16_t port, int enc,  char *cert, char *key);
 
 /**
  * Create and run the chat server.
  *
  * @param address The address to run the server at.
  * @param port The port used by the server.
+ * @param enc Whether the server should use encryption or not (0 or 1).
+ * @param cert Path to the cert file to use for encryption.
+ * @param key Path to the key file to use for encryption.
  */
-void run_server(char* address, int port);
+void run_server(char* address, int port, int enc, char *cert, char *key);
 
 /**
  * Establish a working fd set for user by a server.
  *
  * @param fd_arr An array of connected file descriptors.
- * @param set The FD_SET to be establised.
+ * @param set The FD_SET to be established.
  * @param sock_fd The file descriptor of the server socket.
  * @return The largest integer value of any file descriptor in the set.
  */

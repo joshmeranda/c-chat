@@ -30,6 +30,7 @@ printf(
 "  -a --address    The address for the client.\n"
 "  -p --port       The port for the client.\n"
 "  -u --username   The username for the client.\n"
+"  -e --encrypt    Specify to communicate with tls.\n"
 );
 }
 
@@ -39,10 +40,13 @@ printf(
 void server_usage()
 {
 printf(
-"Usage: chat server -a <address> -p <port>\n"
-"  -h --help       Show this help text.\n"
-"  -a --address    The address for the server.\n"
-"  -p --port       The port for the server.\n"
+"Usage: chat server -a <address> -p <port> [-e -c FILE -k FILE] \n"
+"  -h --help           Show this help text.\n"
+"  -a --address [ADDR] The address for the server.\n"
+"  -p --port [PORT]    The port for the server.\n"
+"  -e --encrypt        Specify to communicate with tls.\n"
+"  -c --cert [FILE]    The cert file for tls encryption.\n"
+"  -k --key [FILE]     The key file for th tls encryption.\n"
 );
 }
 
@@ -56,17 +60,18 @@ printf(
 int client_cli(int argc, char **argv)
 {
     char *address = NULL, *username = NULL;
-    int port = -1, arg;
+    int port = -1, arg, enc = 0;
 
     struct option long_options[] = {
             {"help",     no_argument, 0, 'h'},
             {"address",  required_argument, 0, 'a'},
             {"port",     required_argument, 0, 'p'},
             {"username", required_argument, 0, 'u'},
+            {"encrypt", no_argument,       0, 'e'},
             {0,         0,                  0,  0}
     };
 
-    while ((arg = getopt_long(argc, argv, "a:p:u:", long_options, 0)) > 0)
+    while ((arg = getopt_long(argc, argv, "ha:p:u:e", long_options, 0)) > 0)
     {
         switch (arg)
         {
@@ -82,12 +87,15 @@ int client_cli(int argc, char **argv)
             case 'u':
                 username = strdup(optarg);
                 break;
+            case 'e':
+                enc = 1;
+                break;
             default:
                 return 1; // Stop execution upon unknown option
         }
     }
 
-    run_client(address, port, username);
+    run_client(address, port, username, enc);
 
     free(address);
     free(username);
@@ -104,17 +112,20 @@ int client_cli(int argc, char **argv)
  */
 int server_cli(int argc, char **argv)
 {
-    char *address = NULL;
-    int port = -1, arg;
+    char *address = NULL, *cert = NULL, *key = NULL;
+    int port = -1, arg, enc = 0;
 
     struct option long_options[] = {
-            {"help",     no_argument, 0, 'h'},
-            {"address",  required_argument, 0, 'a'},
-            {"port",     required_argument, 0, 'p'},
-            {0,         0,                  0,  0}
+            {"help",    no_argument,       0, 'h'},
+            {"address", required_argument, 0, 'a'},
+            {"port",    required_argument, 0, 'p'},
+            {"encrypt", no_argument,       0, 'e'},
+            {"cert",    required_argument, 0, 'c'},
+            {"key",     required_argument, 0, 'k'},
+            {0,         0,                 0,  0}
     };
 
-    while ((arg = getopt_long(argc, argv, "a:p:", long_options, 0)) > 0)
+    while ((arg = getopt_long(argc, argv, "ha:p:ec:k:", long_options, 0)) > 0)
     {
         switch (arg)
         {
@@ -122,18 +133,31 @@ int server_cli(int argc, char **argv)
                 server_usage();
                 return 0;
             case 'a':
-                address = optarg;
+                address = strdup(optarg);
                 break;
             case 'p':
                 port = atoi(optarg);
+                break;
+            case 'e':
+                enc = 1;
+                break;
+            case 'c':
+                cert = strdup(optarg);
+                break;
+            case 'k':
+                key = strdup(optarg);
                 break;
             default:
                 return 1; // Stop execution upon unknown option
         }
     }
+    // todo parse for mandatory and dependant options
 
-    run_server(address, port);
+    run_server(address, port, enc, cert, key);
 
+    if (cert != NULL) free(address);
+    if (cert != NULL) free(cert);
+    if (key != NULL) free(key);
     return 0;
 }
 

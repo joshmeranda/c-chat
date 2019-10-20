@@ -1,5 +1,7 @@
 #include "enc_chat_socket.h"
+#include "chat_socket.h"
 #include <openssl/err.h>
+#include <string.h>
 
 void load_certs(SSL_CTX *ctx, char *cert, char *key)
 {
@@ -20,7 +22,7 @@ void load_certs(SSL_CTX *ctx, char *cert, char *key)
     // verify the private key
     if (!SSL_CTX_check_private_key(ctx))
     {
-        fprintf(stderr, "{rivate key does not match the public cert.\n");
+        fprintf(stderr, "Private key does not match the public cert.\n");
         abort();
     }
 }
@@ -32,7 +34,7 @@ SSL_CTX* init_server_ctx()
 
     OpenSSL_add_all_algorithms();
     SSL_load_error_strings();
-    method = TLS_server_method();
+    method = TLS_server_method(); // move to non-deprecated
     ctx = SSL_CTX_new(method);
 
     if (ctx == NULL)
@@ -63,13 +65,14 @@ SSL_CTX* init_client_ctx()
     return ctx;
 }
 
-ssize_t read_ssl(SSL *ssl, char *buffer, size_t n)
+ssize_t read_ssl(SSL *ssl, char *buffer)
 {
-    ssize_t bytes_read = SSL_read(ssl, buffer, n);
+    size_t bytes_read = SSL_read(ssl, buffer, BUFFER_SIZE);
 
     if (bytes_read < 0)
     {
-        perror("read error");
+        ERR_print_errors_fp(stderr);
+        // perror("read error");
         return bytes_read;
     }
     else if (bytes_read == 0)
@@ -85,9 +88,9 @@ ssize_t read_ssl(SSL *ssl, char *buffer, size_t n)
     return bytes_read;
 }
 
-ssize_t send_ssl(SSL *ssl, char *message, size_t n)
+ssize_t send_ssl(SSL *ssl, char *message)
 {
-    ssize_t bytes_sent = SSL_write(ssl, message, n);
+    ssize_t bytes_sent = SSL_write(ssl, message, strlen(message));
 
     if (bytes_sent < 0)
     {

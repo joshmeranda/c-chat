@@ -1,45 +1,115 @@
 #include "server.h"
+#include "enc_chat_socket.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <arpa/inet.h>
 
-void broadcast(char *message, int *client_fd_arr)
+int accept_connection(SOCK sock, int enc)
 {
-    for (int i = 0; i < MAX_CLIENT; i++)
+    int client_fd, address_size = sizeof(sock.addr);
+
+    if ((client_fd = accept(sock.fd,
+                            (struct sockaddr *) &sock.addr,
+                            (socklen_t*) &address_size)) < 0)
     {
-        if (client_fd_arr[i] != 0) { send_fd(client_fd_arr[i], message); }
+        perror("accept");
+        exit(EXIT_FAILURE);
     }
+
+    printf("Client [a] %s [p] %d connected\n",
+           inet_ntoa(sock.addr.sin_addr),
+           ntohs(sock.addr.sin_port));
+
+    return client_fd;
 }
 
-void run_server(char *address, int port)
+SOCK start_server(char* address, uint16_t port, int enc, char *cert, char *key)
 {
-    // server socket information
-    struct sock_info s_sock = start_server(address, (uint16_t) port);
+    SOCK sock;
 
-    printf("Server [a] %s [p] %d open\n",
-           inet_ntoa(s_sock.addr.sin_addr),
-           ntohs(s_sock.addr.sin_port));
+    if (enc)
+    {
+        SSL_library_init();
+        sock.ctx = init_server_ctx();
+        load_certs(sock.ctx, cert, key);
+    }
 
-    int client_fd_arr[MAX_CLIENT];
-    char* user_arr[MAX_CLIENT];
-    memset(user_arr, 0, MAX_CLIENT * sizeof(char*));
+    // Creating socket file descriptor
+    if ((sock.fd = socket(PF_INET, SOCK_STREAM, 0)) == 0)
+    {
+        perror("socket failed");
+        exit(EXIT_FAILURE);
+    }
+    bzero(&sock.addr, sizeof(sock.addr));
 
-    fd_set read_fds;
+    sock.addr.sin_family = AF_INET;
+    inet_pton(AF_INET, address, &sock.addr.sin_addr);
+    sock.addr.sin_port = htons(port);
 
-    // Set client_fd_arr and read_fds to be emtpy (all values are 0)
-    for (int i = 0;i < MAX_CLIENT; i++) { client_fd_arr[i] = 0; }
+    // Forcefully attaching socket to the port 8080
+    if (bind(sock.fd, (struct sockaddr *) &sock.addr,
+             sizeof(sock.addr)) < 0)
+    {
+        perror("bind failed");
+        exit(EXIT_FAILURE);
+    }
 
-    if (listen(s_sock.fd, 1) < 0)
+    if (listen(sock.fd, 1) < 0)
     {
         perror("listen");
         exit(EXIT_FAILURE);
     }
 
+    printf("Server [a] %s [p] %d open\n",
+           inet_ntoa(sock.addr.sin_addr),
+           ntohs(sock.addr.sin_port));
+
+    return sock;
+}
+
+void ShowServerCerts(SSL* ssl)
+{
+    X509 *cert;
+    char *line;
+
+    cert = SSL_get_peer_certificate(ssl); /* Get certificates (if available) */
+    if ( cert != NULL )
+    {
+        printf("Server certificates:\n");
+        line = X509_NAME_oneline(X509_get_subject_name(cert), 0, 0);
+        printf("Subject: %s\n", line);
+        free(line);
+        line = X509_NAME_oneline(X509_get_issuer_name(cert), 0, 0);
+        printf("Issuer: %s\n", line);
+        free(line);
+        X509_free(cert);
+    }
+    else
+        printf("No certificates.\n");
+}
+
+void run_server(char *address, int port, int enc, char *cert, char *key)
+{
+    // arrays for storing connection information.
+    int client_fd_arr[MAX_CLIENT];
+    SSL* client_ssl_arr[MAX_CLIENT];
+    char* user_arr[MAX_CLIENT];
+
+    fd_set read_fds;
+    SOCK sock;
+
+    // set all array contents to 0
+    memset(client_fd_arr, 0, MAX_CLIENT * sizeof(int));
+    memset(client_ssl_arr, 0, MAX_CLIENT * sizeof(SSL*));
+    memset(user_arr, 0, MAX_CLIENT * sizeof(char*));
+
+    sock = start_server(address, (uint16_t) port, enc, cert, key);
+
     // Look through file descriptors for received data or new connections
     while (1)
     {
-        int max_fd = prepare_fd_set(client_fd_arr, &read_fds, s_sock.fd);
+        int max_fd = prepare_fd_set(client_fd_arr, &read_fds, sock.fd);
 
         // wait for a fd to become active (wait indefinitely)
         int active_fds = select(max_fd +1, &read_fds, NULL, NULL, NULL);
@@ -51,13 +121,16 @@ void run_server(char *address, int port)
 
 
         // accept new connections
-        if (FD_ISSET(s_sock.fd, &read_fds))
+        if (FD_ISSET(sock.fd, &read_fds))
         {
-            int new_fd = accept_connection(s_sock);
-            FD_SET(new_fd, &read_fds);
-            printf("Client [a] %s [p] %d connected\n",
-                   inet_ntoa(s_sock.addr.sin_addr),
-                   ntohs(s_sock.addr.sin_port));
+            int new_fd = accept_connection(sock, enc);
+            SSL *ssl = NULL;
+            if (enc)
+            {
+                ssl = SSL_new(sock.ctx);
+                SSL_set_fd(ssl, new_fd);
+                SSL_accept(ssl);
+            }
 
             // look for first empty location in array.
             for (int i = 0; i < MAX_CLIENT; i++)
@@ -65,6 +138,7 @@ void run_server(char *address, int port)
                 if (client_fd_arr[i] == 0)
                 {
                     client_fd_arr[i] = new_fd;
+                    if (ssl != NULL) client_ssl_arr[i] = ssl;
                     FD_SET(new_fd, &read_fds);
                     break;
                 }
@@ -77,11 +151,28 @@ void run_server(char *address, int port)
         {
             if (FD_ISSET(client_fd_arr[i], &read_fds))
             {
-                if (read_fd(client_fd_arr[i], s_sock.buffer) == 0)
+                int bytes_read = -1;
+
+                if (enc)
+                {
+                    bytes_read = read_ssl(client_ssl_arr[i], sock.buffer);
+                }
+                else
+                {
+                    bytes_read = read_fd(client_fd_arr[i], sock.buffer);
+                }
+
+                // todo handle read_bytes == -1
+                if (bytes_read == 0)
                 {
                     printf("Client [a] %s [p] %d closed the connection\n",
-                           inet_ntoa(s_sock.addr.sin_addr),
-                           ntohs(s_sock.addr.sin_port));
+                           inet_ntoa(sock.addr.sin_addr),
+                           ntohs(sock.addr.sin_port));
+                    if (enc)
+                    {
+                        SSL_free(client_ssl_arr[i]);
+                        client_ssl_arr[i] = NULL;
+                    }
                     FD_CLR(client_fd_arr[i], &read_fds);
                     client_fd_arr[i] = 0;
                     free(user_arr[i]);
@@ -89,7 +180,7 @@ void run_server(char *address, int port)
                 }
                 else
                 {
-                    char* packet = s_sock.buffer;
+                    char* packet = sock.buffer;
                     int dest_len = strcspn(packet, DELIMITER) + 1;
                     char* dest = (char*) malloc(dest_len);
 
@@ -100,10 +191,6 @@ void run_server(char *address, int port)
                     if (strcmp(dest, "USERNAME") == 0)
                     {
                         handle_new_user(&user_arr[i], client_fd_arr[i], packet);
-                    }
-                    else if (strcmp(dest, "BRD") == 0)
-                    {
-                        broadcast(packet, client_fd_arr);
                     }
                     else if (strcmp(dest, "LIST") == 0)
                     {
@@ -119,6 +206,10 @@ void run_server(char *address, int port)
             }
         }
     }
+
+    // close server resources
+    shutdown_fd(sock.fd);
+    if (sock.ctx) SSL_CTX_free(sock.ctx);
 }
 
 int prepare_fd_set(int *fd_arr, fd_set *set, int sock_fd)

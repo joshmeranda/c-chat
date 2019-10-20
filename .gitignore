@@ -59,6 +59,9 @@ CMakeLists.txt
 # IDE
 .idea/*
 
-# Debugging files and scripts
+# Debugging dumps and scripts
 vgcore.*
 *.gdb
+
+# Certs and Keys
+*.pem
