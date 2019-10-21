@@ -46,24 +46,30 @@ int prepare_fd_set(int *fd_arr, fd_set *set, int sock_fd);
  *
  * @param fd_arr Array of all file descriptors.
  * @param user_arr Array of all usernames.
+ * @param ssl_arr Array of ssl connections.
  * @param packet The packet to be sent.
  * @param dest The destination username to receive the packet.
+ * @param enc Specifies if the server is using encryption or not.
  */
-void handle_user_to_user(int *fd_arr, char **user_arr, char *packet, char *dest);
+void handle_user_to_user(int *fd_arr, char **user_arr, SSL **ssl_arr, char *packet, char *dest, int enc);
 
 /**
  * Store a new username, and reply to new user with welcome message.
  *
  * @param username Pointer to the destination for the username.
  * @param fd The file descriptor associated with the username.
+ * @param ssl The ssl connection to use if encryption is enabled.
  * @param packet The packet containing the username.
+ * @param enc Specify if the server is using encryption or not.
  */
-void handle_new_user(char **username, int fd, char *packet);
+void handle_new_user(char **username, int fd, SSL *ssl, char *packet, int enc);
 
 /**
  * Reply to client with list of connected users.
  *
  * @param fd The file descriptor to send the reply.
+ * @param ssl The ssl connection to send the reply if encryption is enabled.
  * @param user_arr The array of connected users.
+ * @param enc Specify if the server is using encryption or not.
  */
-void handle_list(int fd, char **user_arr);
+void handle_list(int fd, SSL *ssl, char **user_arr, int enc);

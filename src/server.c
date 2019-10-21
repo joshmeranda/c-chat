@@ -68,33 +68,12 @@ SOCK start_server(char* address, uint16_t port, int enc, char *cert, char *key)
     return sock;
 }
 
-void ShowServerCerts(SSL* ssl)
-{
-    X509 *cert;
-    char *line;
-
-    cert = SSL_get_peer_certificate(ssl); /* Get certificates (if available) */
-    if ( cert != NULL )
-    {
-        printf("Server certificates:\n");
-        line = X509_NAME_oneline(X509_get_subject_name(cert), 0, 0);
-        printf("Subject: %s\n", line);
-        free(line);
-        line = X509_NAME_oneline(X509_get_issuer_name(cert), 0, 0);
-        printf("Issuer: %s\n", line);
-        free(line);
-        X509_free(cert);
-    }
-    else
-        printf("No certificates.\n");
-}
-
 void run_server(char *address, int port, int enc, char *cert, char *key)
 {
     // arrays for storing connection information.
     int client_fd_arr[MAX_CLIENT];
-    SSL* client_ssl_arr[MAX_CLIENT];
-    char* user_arr[MAX_CLIENT];
+    SSL *client_ssl_arr[MAX_CLIENT];
+    char *user_arr[MAX_CLIENT];
 
     fd_set read_fds;
     SOCK sock;
@@ -190,15 +169,15 @@ void run_server(char *address, int port, int enc, char *cert, char *key)
 
                     if (strcmp(dest, "USERNAME") == 0)
                     {
-                        handle_new_user(&user_arr[i], client_fd_arr[i], packet);
+                        handle_new_user(&user_arr[i], client_fd_arr[i], client_ssl_arr[i], packet, enc);
                     }
                     else if (strcmp(dest, "LIST") == 0)
                     {
-                        handle_list(client_fd_arr[i], user_arr);
+                        handle_list(client_fd_arr[i], client_ssl_arr[i], user_arr, enc);
                     }
                     else
                     {
-                        handle_user_to_user(client_fd_arr, user_arr, packet, dest);
+                        handle_user_to_user(client_fd_arr, user_arr, client_ssl_arr, packet, dest, enc);
                     }
 
                     free(dest);
@@ -229,7 +208,7 @@ int prepare_fd_set(int *fd_arr, fd_set *set, int sock_fd)
     return max_fd;
 }
 
-void handle_user_to_user(int *fd_arr, char **user_arr, char *packet, char *dest)
+void handle_user_to_user(int *fd_arr, char **user_arr, SSL **ssl_arr, char *packet, char *dest, int enc)
 {
     // iterate through user_arr to find username matching dest
     for (int i = 0; i < MAX_CLIENT; i++) {
@@ -238,26 +217,42 @@ void handle_user_to_user(int *fd_arr, char **user_arr, char *packet, char *dest)
         }
         else if (strcmp(user_arr[i], dest) == 0)
         {
-            send_fd(fd_arr[i], packet);
+            if (enc)
+            {
+                send_ssl(ssl_arr[i], packet);
+            }
+            else
+            {
+                send_fd(fd_arr[i], packet);
+            }
+
             break;
         }
     }
 }
 
-void handle_new_user(char **username, int fd, char *packet)
+void handle_new_user(char **username, int fd, SSL *ssl, char *packet, int enc)
 {
     int dest_len = strcspn(packet, DELIMITER) + 1;
     *username = (char*) malloc(dest_len);
-    strncpy(*username, packet, dest_len); // strncpy might break shit
+    strncpy(*username, packet, dest_len);
     (*username)[dest_len - 1] = '\0';
 
     // Reply to new user with welcome message
     char* new_user_msg = strdup("Welcome to my server!!!");
-    send_fd(fd, new_user_msg);
+    if (enc)
+    {
+        send_ssl(ssl, new_user_msg);
+    }
+    else
+    {
+        send_fd(fd, new_user_msg);
+    }
+
     free(new_user_msg);
 }
 
-void handle_list(int fd, char **user_arr)
+void handle_list(int fd, SSL *ssl, char **user_arr, int enc)
 {
     char *users;
     int len = 0;
@@ -294,7 +289,14 @@ void handle_list(int fd, char **user_arr)
     strcat(packet, users);
     strcat(packet, DELIMITER);
 
-    send_fd(fd, packet);
+    if (enc)
+    {
+        send_ssl(ssl, packet);
+    }
+    else
+    {
+        send_fd(fd, packet);
+    }
 
     free(users);
     free(packet);

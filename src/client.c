@@ -41,12 +41,11 @@ void connect_client(SOCK *sock, int enc)
         perror("Connection failure");
         exit(EXIT_FAILURE);
     }
-    printf("=== connected ===\n");
 
     if (enc)
     {
-        sock->ssl = SSL_new(sock->ctx); printf("=== SSL_new ===\n");
-        SSL_set_fd(sock->ssl, sock->fd); printf("=== SSL_set_fd ===\n");
+        sock->ssl = SSL_new(sock->ctx);
+        SSL_set_fd(sock->ssl, sock->fd);
     }
 
     if (enc && SSL_connect(sock->ssl) < 0)
@@ -54,7 +53,6 @@ void connect_client(SOCK *sock, int enc)
         perror("Connection failure");
         exit(EXIT_FAILURE);
     }
-    printf("=== SSL_connect ===\n");
 }
 
 void prompt(char *username)
@@ -96,26 +94,6 @@ char* form_packet(char **packet, ...)
     return *packet;
 }
 
-void ShowCerts(SSL* ssl)
-{   X509 *cert;
-    char *line;
-
-    cert = SSL_get_peer_certificate(ssl); /* get the server's certificate */
-    if ( cert != NULL )
-    {
-        printf("Server certificates:\n");
-        line = X509_NAME_oneline(X509_get_subject_name(cert), 0, 0);
-        printf("Subject: %s\n", line);
-        free(line);       /* free the malloc'ed string */
-        line = X509_NAME_oneline(X509_get_issuer_name(cert), 0, 0);
-        printf("Issuer: %s\n", line);
-        free(line);       /* free the malloc'ed string */
-        X509_free(cert);     /* free the malloc'ed certificate copy */
-    }
-    else
-        printf("Info: No client certificates configured.\n");
-}
-
 void run_client(char *address, int port, char *username, int enc)
 {
     SOCK sock;
@@ -126,8 +104,8 @@ void run_client(char *address, int port, char *username, int enc)
 
     if (enc)
     {
-        SSL_library_init(); printf("=== SSL_LI ===\n");
-        ctx = init_client_ctx(); printf("=== CTX_I ===\n");
+        SSL_library_init();
+        ctx = init_client_ctx();
     }
 
     // read user input until they enter '.exit'
@@ -153,7 +131,7 @@ void run_client(char *address, int port, char *username, int enc)
                 continue;
             }
 
-            // Parse destination and message from remainder of input
+            // Parse destination and message from remainder of input1
             // assumes a singular space between command, dest, and msg
             dest = get_next_word(&input[strlen(cmd) + 1]);
             msg = &input[strlen(cmd) + strlen(dest) + 2];
@@ -166,7 +144,6 @@ void run_client(char *address, int port, char *username, int enc)
         {
             if (connected) {
                 disconnect_client(sock.fd, r_th);
-                connected = 0;
                 r_th = -1;
             }
 
@@ -183,7 +160,7 @@ void run_client(char *address, int port, char *username, int enc)
             }
 
             sock = start_client(address, (uint16_t) port, enc);
-            sock.ctx = ctx;
+            if (enc) sock.ctx = ctx;
 
             connect_client(&sock, enc);
             connected = 1;
@@ -191,7 +168,6 @@ void run_client(char *address, int port, char *username, int enc)
             // Start new thread for reading from socket
             pthread_create(&r_th, NULL, client_read, &sock);
 
-            ShowCerts(sock.ssl);
             client_send(&sock, "USERNAME", src, NULL, enc);
         }
         else if (strcmp(".disconnect", cmd) == 0) // close connection, stay in shell loop
@@ -213,6 +189,8 @@ void run_client(char *address, int port, char *username, int enc)
 
         free(cmd);
     }
+
+    if (ctx != NULL) SSL_CTX_free(ctx);
 }
 
 void disconnect_client(int fd, pthread_t th)
@@ -230,7 +208,6 @@ ssize_t client_send(SOCK *sock, char *dest, char *src, char *msg, int enc) {
 
     if (enc)
     {
-        printf("Encrypted");
         bytes_sent = send_ssl(sock->ssl, packet);
     }
     else
