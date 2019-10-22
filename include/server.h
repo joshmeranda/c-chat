@@ -50,7 +50,7 @@ int prepare_fd_set(int *fd_arr, fd_set *set, int sock_fd);
  * @param dest The destination username to receive the packet.
  * @param enc Specifies if the server is using encryption or not.
  */
-void handle_user_to_user(int *fd_arr, char **user_arr, SSL **ssl_arr, char *packet, char *dest, int enc);
+ssize_t handle_user_to_user(int *fd_arr, char **user_arr, SSL **ssl_arr, char *packet, char *dest, int enc);
 
 /**
  * Reply to client with list of connected users.

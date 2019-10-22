@@ -191,9 +191,18 @@ void run_server(char *address, int port, int enc, char *cert, char *key)
                     }
                     else
                     {
-                        handle_user_to_user(client_fd_arr, user_arr, client_ssl_arr, packet, dest, enc);
-                    }
+                        if (handle_user_to_user(client_fd_arr, user_arr, client_ssl_arr, packet, dest, enc) == -1)
+                        {
+                            // no matching username was found
+                            char *message, *fmt = "No such user '%s'";
+                            int msg_len = strlen(fmt) + strlen(dest) - 1;
 
+                            message = malloc(msg_len);
+                            sprintf(message, fmt, dest);
+                            chat_send(client_fd_arr[i], client_ssl_arr[i], enc, message);
+                            free(message);
+                        }
+                    }
                     free(dest);
                 }
             }
@@ -222,17 +231,18 @@ int prepare_fd_set(int *fd_arr, fd_set *set, int sock_fd)
     return max_fd;
 }
 
-void handle_user_to_user(int *fd_arr, char **user_arr, SSL **ssl_arr, char *packet, char *dest, int enc)
+ssize_t handle_user_to_user(int *fd_arr, char **user_arr, SSL **ssl_arr, char *packet, char *dest, int enc)
 {
     // iterate through user_arr to find username matching dest
     for (int i = 0; i < MAX_CLIENT; i++)
     {
         if (user_arr[i] != NULL && strcmp(user_arr[i], dest) == 0)
         {
-            chat_send(fd_arr[i], ssl_arr[i], enc, packet);
-            break;
+            return chat_send(fd_arr[i], ssl_arr[i], enc, packet);
         }
     }
+
+    return -1;
 }
 
 void handle_list(int fd, SSL *ssl, char **user_arr, int enc)
