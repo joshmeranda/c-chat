@@ -54,7 +54,7 @@ void run_client(char* address, int port, char* username, int enc);
  * @param fd The file descriptor to close.
  * @param th The thread ID to close.
  */
-void disconnect_client(int fd, pthread_t th);
+void disconnect_client(int fd, SSL *ssl, pthread_t th);
 
 /**
  * Form and send a packet to the server.
@@ -67,15 +67,6 @@ void disconnect_client(int fd, pthread_t th);
  * @return The amount of bytes sent over the server.
  */
 ssize_t client_send(SOCK *sock, char* dest, char* src, char* msg, int enc);
-
-/**
- * Get the next word in a string, meaning there is a ' ' or '\n' ending the
- * string.
- *
- * @param input The string to parse.
- * @return Pointer to the null terminated word, needs to be freed after use.
- */
-char *get_next_word(char *input);
 
 /**
  * Continually read incoming data from the connected socket.

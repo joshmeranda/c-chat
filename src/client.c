@@ -119,7 +119,7 @@ void run_client(char *address, int port, char *username, int enc)
         fgets(input, 1024, stdin);
         input[strcspn(input, "\n")] = '\0';
 
-        cmd = get_next_word(input);
+        cmd = get_next_word(input, " \n\0'");
 
         // execute command entered by client
         if (strcmp(".send", cmd) == 0)
@@ -133,7 +133,7 @@ void run_client(char *address, int port, char *username, int enc)
 
             // Parse destination and message from remainder of input1
             // assumes a singular space between command, dest, and msg
-            dest = get_next_word(&input[strlen(cmd) + 1]);
+            dest = get_next_word(&input[strlen(cmd) + 1], " \n\0");
             msg = &input[strlen(cmd) + strlen(dest) + 2];
 
             client_send(&sock, dest, src, msg, enc);
@@ -143,7 +143,7 @@ void run_client(char *address, int port, char *username, int enc)
         else if (strcmp(".exit", cmd) == 0) // close connection, leave shell loop
         {
             if (connected) {
-                disconnect_client(sock.fd, r_th);
+                disconnect_client(sock.fd, sock.ssl, r_th);
                 r_th = -1;
             }
 
@@ -168,12 +168,12 @@ void run_client(char *address, int port, char *username, int enc)
             // Start new thread for reading from socket
             pthread_create(&r_th, NULL, client_read, &sock);
 
-            client_send(&sock, "USERNAME", src, NULL, enc);
+            client_send(&sock, src, NULL, NULL, enc);
         }
         else if (strcmp(".disconnect", cmd) == 0) // close connection, stay in shell loop
         {
             if (connected) {
-                disconnect_client(sock.fd, r_th);
+                disconnect_client(sock.fd, sock.ssl, r_th);
                 connected = 0;
                 r_th = -1;
             }
@@ -193,10 +193,15 @@ void run_client(char *address, int port, char *username, int enc)
     if (ctx != NULL) SSL_CTX_free(ctx);
 }
 
-void disconnect_client(int fd, pthread_t th)
+void disconnect_client(int fd, SSL *ssl, pthread_t th)
 {
     pthread_cancel(th);
     shutdown_fd(fd);
+
+    if (ssl != NULL)
+    {
+        SSL_free(ssl);
+    }
 }
 
 ssize_t client_send(SOCK *sock, char *dest, char *src, char *msg, int enc) {
@@ -217,16 +222,6 @@ ssize_t client_send(SOCK *sock, char *dest, char *src, char *msg, int enc) {
 
     free(packet);
     return bytes_sent;
-}
-
-char *get_next_word(char *input)
-{
-    int len = strcspn(input, " \n\0") + 1;
-    char *word = (char*) malloc(len);
-    strncpy(word, input, len);
-    word[len - 1] = '\0';
-
-    return word;
 }
 
 void *client_read(void *sock) {

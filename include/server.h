@@ -73,3 +73,5 @@ void handle_new_user(char **username, int fd, SSL *ssl, char *packet, int enc);
  * @param enc Specify if the server is using encryption or not.
  */
 void handle_list(int fd, SSL *ssl, char **user_arr, int enc);
+
+int valid_username(char **user_arr, char *username);

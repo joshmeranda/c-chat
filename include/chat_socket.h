@@ -41,6 +41,16 @@ ssize_t read_fd(int fd, char *buffer);
 ssize_t send_fd(int fd, char* message);
 
 /**
+ * Get the next word in a string, meaning there is a ' ' or '\n' ending the
+ * string.
+ *
+ * @param input The string to parse.
+ * @param term The possible terminating characters for the next word.
+ * @return Pointer to the null terminated word, needs to be freed after use.
+ */
+char *get_next_word(char *input, char *term);
+
+/**
  * Shutdown a file descriptor.
  *
  * @param fd The file descriptor to shut down.

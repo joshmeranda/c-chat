@@ -37,6 +37,16 @@ ssize_t send_fd(int fd, char* message)
     return bytes_sent;
 }
 
+char *get_next_word(char *input, char *term)
+{
+    int len = strcspn(input, term) + 1;
+    char *word = (char*) malloc(len);
+    strncpy(word, input, len);
+    word[len - 1] = '\0';
+
+    return word;
+}
+
 int shutdown_fd(int fd)
 {
     if (shutdown(fd, SHUT_RDWR) < 0)

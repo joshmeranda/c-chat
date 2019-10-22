@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <unistd.h>
 
 int accept_connection(SOCK sock, int enc)
 {
@@ -27,6 +28,7 @@ int accept_connection(SOCK sock, int enc)
 SOCK start_server(char* address, uint16_t port, int enc, char *cert, char *key)
 {
     SOCK sock;
+    int opt;
 
     if (enc)
     {
@@ -42,6 +44,14 @@ SOCK start_server(char* address, uint16_t port, int enc, char *cert, char *key)
         exit(EXIT_FAILURE);
     }
     bzero(&sock.addr, sizeof(sock.addr));
+
+    // set socket options
+    if (setsockopt(sock.fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT,
+                   &opt, sizeof(opt)))
+    {
+        perror("setsockopt");
+        exit(EXIT_FAILURE);
+    }
 
     sock.addr.sin_family = AF_INET;
     inet_pton(AF_INET, address, &sock.addr.sin_addr);
@@ -91,19 +101,19 @@ void run_server(char *address, int port, int enc, char *cert, char *key)
         int max_fd = prepare_fd_set(client_fd_arr, &read_fds, sock.fd);
 
         // wait for a fd to become active (wait indefinitely)
-        int active_fds = select(max_fd +1, &read_fds, NULL, NULL, NULL);
+        int active_fds = select(max_fd + 1, &read_fds, NULL, NULL, NULL);
         if (active_fds < 0)
         {
             perror("select failure");
             exit(EXIT_FAILURE);
         }
 
-
         // accept new connections
         if (FD_ISSET(sock.fd, &read_fds))
         {
             int new_fd = accept_connection(sock, enc);
             SSL *ssl = NULL;
+
             if (enc)
             {
                 ssl = SSL_new(sock.ctx);
@@ -111,26 +121,50 @@ void run_server(char *address, int port, int enc, char *cert, char *key)
                 SSL_accept(ssl);
             }
 
+            // require username to be sent from client on startup
+            if (enc)
+            {
+                read_ssl(ssl, sock.buffer);
+            }
+            else
+            {
+                read_fd(new_fd, sock.buffer);
+            }
+
+            char *username = get_next_word(sock.buffer, DELIMITER);
+            int valid_conn = valid_username(user_arr, username);
+
+            if (valid_conn == 0)
+            {
+                printf("Client [a] %s [p] %d closed the connection\n",
+                       inet_ntoa(sock.addr.sin_addr),
+                       ntohs(sock.addr.sin_port));
+                if (enc) SSL_free(ssl);
+                shutdown_fd(new_fd);
+                free(username);
+            }
+
             // look for first empty location in array.
-            for (int i = 0; i < MAX_CLIENT; i++)
+            for (int i = 0; valid_conn && i < MAX_CLIENT; i++)
             {
                 if (client_fd_arr[i] == 0)
                 {
                     client_fd_arr[i] = new_fd;
                     if (ssl != NULL) client_ssl_arr[i] = ssl;
+                    user_arr[i] = username;
                     FD_SET(new_fd, &read_fds);
                     break;
                 }
             }
+            continue;
         }
-
 
         // loop through all stored fds to look for those found by select
         for (int i = 0; i < MAX_CLIENT; i++)
         {
             if (FD_ISSET(client_fd_arr[i], &read_fds))
             {
-                int bytes_read = -1;
+                int bytes_read;
 
                 if (enc)
                 {
@@ -144,6 +178,7 @@ void run_server(char *address, int port, int enc, char *cert, char *key)
                 // todo handle read_bytes == -1
                 if (bytes_read == 0)
                 {
+                    getpeername(client_fd_arr[i], (struct sockaddr*) &sock.addr, (socklen_t*) sizeof(sock.addr));
                     printf("Client [a] %s [p] %d closed the connection\n",
                            inet_ntoa(sock.addr.sin_addr),
                            ntohs(sock.addr.sin_port));
@@ -153,6 +188,7 @@ void run_server(char *address, int port, int enc, char *cert, char *key)
                         client_ssl_arr[i] = NULL;
                     }
                     FD_CLR(client_fd_arr[i], &read_fds);
+                    shutdown_fd(client_fd_arr[i]);
                     client_fd_arr[i] = 0;
                     free(user_arr[i]);
                     user_arr[i] = NULL;
@@ -160,18 +196,10 @@ void run_server(char *address, int port, int enc, char *cert, char *key)
                 else
                 {
                     char* packet = sock.buffer;
-                    int dest_len = strcspn(packet, DELIMITER) + 1;
-                    char* dest = (char*) malloc(dest_len);
+                    char* dest = get_next_word(packet, DELIMITER); // (char*) malloc(dest_len);
+                    packet = &packet[strlen(dest)];
 
-                    strncpy(dest, packet, dest_len);
-                    dest[dest_len - 1] = '\0';
-                    packet = &packet[dest_len];
-
-                    if (strcmp(dest, "USERNAME") == 0)
-                    {
-                        handle_new_user(&user_arr[i], client_fd_arr[i], client_ssl_arr[i], packet, enc);
-                    }
-                    else if (strcmp(dest, "LIST") == 0)
+                    if (strcmp(dest, "LIST") == 0)
                     {
                         handle_list(client_fd_arr[i], client_ssl_arr[i], user_arr, enc);
                     }
@@ -211,11 +239,9 @@ int prepare_fd_set(int *fd_arr, fd_set *set, int sock_fd)
 void handle_user_to_user(int *fd_arr, char **user_arr, SSL **ssl_arr, char *packet, char *dest, int enc)
 {
     // iterate through user_arr to find username matching dest
-    for (int i = 0; i < MAX_CLIENT; i++) {
-        if (user_arr[i] == NULL) {
-            continue;
-        }
-        else if (strcmp(user_arr[i], dest) == 0)
+    for (int i = 0; i < MAX_CLIENT; i++)
+    {
+        if (user_arr[i] != NULL && strcmp(user_arr[i], dest) == 0)
         {
             if (enc)
             {
@@ -300,4 +326,16 @@ void handle_list(int fd, SSL *ssl, char **user_arr, int enc)
 
     free(users);
     free(packet);
+}
+
+int valid_username(char **user_arr, char *username)
+{
+    for (int i = 0; i < MAX_CLIENT; i++)
+    {
+        if (user_arr[i] == NULL) continue;
+
+        if (strcmp(user_arr[i], username) == 0) return 0;
+    }
+
+    return 1;
 }
