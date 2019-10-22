@@ -6,7 +6,7 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
-int accept_connection(SOCK sock, int enc)
+int accept_connection(SOCK sock)
 {
     int client_fd, address_size = sizeof(sock.addr);
 
@@ -111,7 +111,7 @@ void run_server(char *address, int port, int enc, char *cert, char *key)
         // accept new connections
         if (FD_ISSET(sock.fd, &read_fds))
         {
-            int new_fd = accept_connection(sock, enc);
+            int new_fd = accept_connection(sock);
             SSL *ssl = NULL;
 
             if (enc)
@@ -122,20 +122,15 @@ void run_server(char *address, int port, int enc, char *cert, char *key)
             }
 
             // require username to be sent from client on startup
-            if (enc)
-            {
-                read_ssl(ssl, sock.buffer);
-            }
-            else
-            {
-                read_fd(new_fd, sock.buffer);
-            }
+            chat_read(new_fd, ssl, enc, sock.buffer);
 
+            // determine if provided username is valid
             char *username = get_next_word(sock.buffer, DELIMITER);
             int valid_conn = valid_username(user_arr, username);
 
             if (valid_conn == 0)
             {
+                chat_send(new_fd, ssl, enc, "Username is already in use, please try another.");
                 printf("Client [a] %s [p] %d closed the connection\n",
                        inet_ntoa(sock.addr.sin_addr),
                        ntohs(sock.addr.sin_port));
@@ -164,16 +159,7 @@ void run_server(char *address, int port, int enc, char *cert, char *key)
         {
             if (FD_ISSET(client_fd_arr[i], &read_fds))
             {
-                int bytes_read;
-
-                if (enc)
-                {
-                    bytes_read = read_ssl(client_ssl_arr[i], sock.buffer);
-                }
-                else
-                {
-                    bytes_read = read_fd(client_fd_arr[i], sock.buffer);
-                }
+                int bytes_read = chat_read(client_fd_arr[i], client_ssl_arr[i], enc, sock.buffer);
 
                 // todo handle read_bytes == -1
                 if (bytes_read == 0)
@@ -243,39 +229,10 @@ void handle_user_to_user(int *fd_arr, char **user_arr, SSL **ssl_arr, char *pack
     {
         if (user_arr[i] != NULL && strcmp(user_arr[i], dest) == 0)
         {
-            if (enc)
-            {
-                send_ssl(ssl_arr[i], packet);
-            }
-            else
-            {
-                send_fd(fd_arr[i], packet);
-            }
-
+            chat_send(fd_arr[i], ssl_arr[i], enc, packet);
             break;
         }
     }
-}
-
-void handle_new_user(char **username, int fd, SSL *ssl, char *packet, int enc)
-{
-    int dest_len = strcspn(packet, DELIMITER) + 1;
-    *username = (char*) malloc(dest_len);
-    strncpy(*username, packet, dest_len);
-    (*username)[dest_len - 1] = '\0';
-
-    // Reply to new user with welcome message
-    char* new_user_msg = strdup("Welcome to my server!!!");
-    if (enc)
-    {
-        send_ssl(ssl, new_user_msg);
-    }
-    else
-    {
-        send_fd(fd, new_user_msg);
-    }
-
-    free(new_user_msg);
 }
 
 void handle_list(int fd, SSL *ssl, char **user_arr, int enc)
@@ -315,14 +272,7 @@ void handle_list(int fd, SSL *ssl, char **user_arr, int enc)
     strcat(packet, users);
     strcat(packet, DELIMITER);
 
-    if (enc)
-    {
-        send_ssl(ssl, packet);
-    }
-    else
-    {
-        send_fd(fd, packet);
-    }
+    chat_send(fd, ssl, enc, packet);
 
     free(users);
     free(packet);

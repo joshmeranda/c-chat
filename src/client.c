@@ -209,16 +209,7 @@ ssize_t client_send(SOCK *sock, char *dest, char *src, char *msg, int enc) {
 
     form_packet(&packet, dest, src, msg, NULL);
 
-    int bytes_sent;
-
-    if (enc)
-    {
-        bytes_sent = send_ssl(sock->ssl, packet);
-    }
-    else
-    {
-        bytes_sent = send_fd(sock->fd, packet);
-    }
+    int bytes_sent = chat_send(sock->fd, sock->ssl, enc, packet);
 
     free(packet);
     return bytes_sent;
@@ -226,17 +217,9 @@ ssize_t client_send(SOCK *sock, char *dest, char *src, char *msg, int enc) {
 
 void *client_read(void *sock) {
     SOCK *c_sock = (SOCK*) sock;
-    int bytes_read = 0;
 
     while (1) {
-        if (c_sock->ssl != NULL)
-        {
-            bytes_read = read_ssl(c_sock->ssl, c_sock->buffer);
-        }
-        else
-        {
-            bytes_read = read_fd(c_sock->fd, c_sock->buffer);
-        }
+        int bytes_read = chat_read(c_sock->fd, c_sock->ssl, c_sock->ssl != NULL, c_sock->buffer);
 
         if (bytes_read > 0)
         {

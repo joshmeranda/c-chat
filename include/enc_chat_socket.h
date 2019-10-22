@@ -4,12 +4,6 @@
 #include <openssl/ssl.h>
 #include <netinet/in.h>
 
-#define USERNAME_MAX 25
-#define BUFFER_SIZE USERNAME_MAX * 2 + 3 // enough to span <src>|<dest>|<256 chars>|
-#define DELIMITER "|"
-
-// http://simplestcodings.blogspot.com/2010/08/secure-server-client-using-openssl-in-c.html - see for tls example
-
 /**
  * Check the validity of the cert and key files, and adjust the context
  * to account for them.
