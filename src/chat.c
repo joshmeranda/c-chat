@@ -25,7 +25,7 @@ printf(
 void client_usage()
 {
 printf(
-"Usage: chat client -a <address> -p <port> -u <username>\n"
+"Usage: chat client -a <address> -p <port> -u <username> [-e]\n"
 "  -h --help       Show this help text.\n"
 "  -a --address    The address for the client.\n"
 "  -p --port       The port for the client.\n"
@@ -44,7 +44,8 @@ printf(
 "  -h --help           Show this help text.\n"
 "  -a --address [ADDR] The address for the server.\n"
 "  -p --port [PORT]    The port for the server.\n"
-"  -e --encrypt        Specify to communicate with tls.\n"
+"  -e --encrypt        Specify to communicate with tls, requires '-c' && '-k'\n"
+"                      options.\n"
 "  -c --cert [FILE]    The cert file for tls encryption.\n"
 "  -k --key [FILE]     The key file for th tls encryption.\n"
 );
@@ -95,7 +96,14 @@ int client_cli(int argc, char **argv)
         }
     }
 
-    run_client(address, port, username, enc);
+    if (address == NULL || port == -1|| username == NULL)
+    {
+        printf("chat: Missing required options.\nSee 'chat client --help' for more information.");
+    }
+    else
+    {
+        run_client(address, port, username, enc);
+    }
 
     free(address);
     free(username);
@@ -151,13 +159,20 @@ int server_cli(int argc, char **argv)
                 return 1; // Stop execution upon unknown option
         }
     }
-    // todo parse for mandatory and dependant options
 
-    run_server(address, port, enc, cert, key);
+    if (address == NULL || port == -1 || (enc == 1 && (cert == NULL || key == NULL)))
+    {
+        printf("chat: Missing required options.\nSee 'chat client --help' for more information.");
+    }
+    else
+    {
+        run_server(address, port, enc, cert, key);
+    }
 
     if (cert != NULL) free(address);
     if (cert != NULL) free(cert);
     if (key != NULL) free(key);
+
     return 0;
 }
 
