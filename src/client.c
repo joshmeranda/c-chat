@@ -79,7 +79,7 @@ char* form_packet(char **packet, ...)
 
     // allocate space for the packet
     *packet = (char *) malloc(packet_len);
-    (*packet)[0] = '\0';
+    memset(*packet, 0, packet_len);
 
     // form the packet
     va_start(args, packet);
@@ -223,7 +223,6 @@ void *client_read(void *sock) {
 
     while (1) {
         int bytes_read = chat_read(c_sock->fd, c_sock->ssl, c_sock->ssl != NULL, c_sock->buffer);
-        printf("%d\n", bytes_read);
 
         if (bytes_read > 0)
         {

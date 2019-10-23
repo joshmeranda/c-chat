@@ -45,8 +45,7 @@ SOCK start_server(char* address, uint16_t port, int enc, char *cert, char *key)
     bzero(&sock.addr, sizeof(sock.addr));
 
     // set socket options
-    if (setsockopt(sock.fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT,
-                   &opt, sizeof(opt)))
+    if (setsockopt(sock.fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)))
     {
         perror("setsockopt");
         exit(EXIT_FAILURE);
@@ -277,6 +276,7 @@ void handle_list(int fd, SSL *ssl, char **user_arr, int enc, int max_client)
     }
 
     users = (char*) malloc(len);
+    memset(users, 0, len);
 
     for (int i = 0; i < max_client; i++)
     {
@@ -288,12 +288,12 @@ void handle_list(int fd, SSL *ssl, char **user_arr, int enc, int max_client)
     }
 
     users[len - 1] = '\0';
-    printf("users : %s\n", users);
 
     // create packet
     char *packet, *src = "SERVER";
-    len = strlen(src) + len + 2;
+    len += strlen(src) + 2;
     packet = (char*) malloc(len);
+    memset(packet, 0, len);
 
     strcat(packet, src);
     strcat(packet, DELIMITER);
