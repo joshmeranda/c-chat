@@ -7,6 +7,8 @@
 #include <string.h>
 #include <stdio.h>
 
+#define MAX_CLIENT 1024
+
 /**
  * Print the usage text for the chat program.
  */
@@ -26,11 +28,11 @@ void client_usage()
 {
 printf(
 "Usage: chat client -a <address> -p <port> -u <username> [-e]\n"
-"  -h --help       Show this help text.\n"
-"  -a --address    The address for the client.\n"
-"  -p --port       The port for the client.\n"
-"  -u --username   The username for the client.\n"
-"  -e --encrypt    Specify to communicate with tls.\n"
+"  -h --help         Show this help text.\n"
+"  -a --address [ADDR]  The address for the client.\n"
+"  -p --port [PORT] The port for the client.\n"
+"  -u --username [USERNAME]  The username for the client.\n"
+"  -e --encrypt      Specify to communicate with tls.\n"
 );
 }
 
@@ -41,13 +43,15 @@ void server_usage()
 {
 printf(
 "Usage: chat server -a <address> -p <port> [-e -c FILE -k FILE] \n"
-"  -h --help           Show this help text.\n"
-"  -a --address [ADDR] The address for the server.\n"
-"  -p --port [PORT]    The port for the server.\n"
-"  -e --encrypt        Specify to communicate with tls, requires '-c' && '-k'\n"
-"                      options.\n"
-"  -c --cert [FILE]    The cert file for tls encryption.\n"
-"  -k --key [FILE]     The key file for th tls encryption.\n"
+"  -h --help         Show this help text.\n"
+"  -a --address [ADDR]  The address for the server.\n"
+"  -p --port [PORT]  The port for the server.\n"
+"  -e --encrypt      Specify to communicate with tls, requires '-c' && '-k'\n"
+"                    options.\n"
+"  -c --cert [FILE]  The cert file for tls encryption.\n"
+"  -k --key [FILE]   The key file for th tls encryption.\n"
+"  -m --max-client [COUNT]  The maximum amount of client connections the server\n"
+"                    should handle.\n"
 );
 }
 
@@ -121,19 +125,20 @@ int client_cli(int argc, char **argv)
 int server_cli(int argc, char **argv)
 {
     char *address = NULL, *cert = NULL, *key = NULL;
-    int port = -1, arg, enc = 0;
+    int port = -1, arg, enc = 0, max_client = MAX_CLIENT;
 
     struct option long_options[] = {
-            {"help",    no_argument,       0, 'h'},
-            {"address", required_argument, 0, 'a'},
-            {"port",    required_argument, 0, 'p'},
-            {"encrypt", no_argument,       0, 'e'},
-            {"cert",    required_argument, 0, 'c'},
-            {"key",     required_argument, 0, 'k'},
-            {0,         0,                 0,  0}
+            {"help",       no_argument,       0, 'h'},
+            {"address",    required_argument, 0, 'a'},
+            {"port",       required_argument, 0, 'p'},
+            {"encrypt",    no_argument,       0, 'e'},
+            {"cert",       required_argument, 0, 'c'},
+            {"key",        required_argument, 0, 'k'},
+            {"max-client", required_argument, 0, 'm'},
+            {0,            0,                 0,  0}
     };
 
-    while ((arg = getopt_long(argc, argv, "ha:p:ec:k:", long_options, 0)) > 0)
+    while ((arg = getopt_long(argc, argv, "ha:p:ec:k:m:", long_options, 0)) > 0)
     {
         switch (arg)
         {
@@ -155,6 +160,9 @@ int server_cli(int argc, char **argv)
             case 'k':
                 key = strdup(optarg);
                 break;
+            case 'm':
+                max_client = atoi(optarg);
+                break;
             default:
                 return 1; // Stop execution upon unknown option
         }
@@ -166,7 +174,7 @@ int server_cli(int argc, char **argv)
     }
     else
     {
-        run_server(address, port, enc, cert, key);
+        run_server(address, port, max_client, enc, cert, key);
     }
 
     if (cert != NULL) free(address);

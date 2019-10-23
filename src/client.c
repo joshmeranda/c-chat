@@ -1,5 +1,4 @@
 #include "client.h"
-#include "enc_chat_socket.h"
 #include <pthread.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -29,6 +28,8 @@ SOCK start_client(char* address, uint16_t port, int enc)
         perror("Invalid / unsupported address");
         exit(EXIT_FAILURE);
     }
+
+    sock.ssl = NULL;
 
     return sock;
 }
@@ -98,9 +99,10 @@ void run_client(char *address, int port, char *username, int enc)
 {
     SOCK sock;
     SSL_CTX *ctx = NULL;
-    int connected = 0;
     char *src = username;
     pthread_t r_th = -1;
+
+    sock.fd = -1;
 
     if (enc)
     {
@@ -124,7 +126,8 @@ void run_client(char *address, int port, char *username, int enc)
         // execute command entered by client
         if (strcmp(".send", cmd) == 0)
         {
-            if (! connected)
+            printf("%d\n", sock.fd);
+            if (sock.fd == -1)
             {
                 printf("You are not connected to anyone.\n");
                 free(cmd);
@@ -142,8 +145,8 @@ void run_client(char *address, int port, char *username, int enc)
         }
         else if (strcmp(".exit", cmd) == 0) // close connection, leave shell loop
         {
-            if (connected) {
-                disconnect_client(sock.fd, sock.ssl, r_th);
+            if (sock.fd != -1) {
+                disconnect_client(&sock, r_th);
                 r_th = -1;
             }
 
@@ -152,7 +155,7 @@ void run_client(char *address, int port, char *username, int enc)
         }
         else if (strcmp(".connect", cmd) == 0)
         {
-            if (connected)
+            if (sock.fd != -1)
             {
                 printf("You are already connected\n");
                 free(cmd);
@@ -163,7 +166,6 @@ void run_client(char *address, int port, char *username, int enc)
             if (enc) sock.ctx = ctx;
 
             connect_client(&sock, enc);
-            connected = 1;
 
             // Start new thread for reading from socket
             pthread_create(&r_th, NULL, client_read, &sock);
@@ -172,9 +174,8 @@ void run_client(char *address, int port, char *username, int enc)
         }
         else if (strcmp(".disconnect", cmd) == 0) // close connection, stay in shell loop
         {
-            if (connected) {
-                disconnect_client(sock.fd, sock.ssl, r_th);
-                connected = 0;
+            if (sock.fd != -1) {
+                disconnect_client(&sock, r_th);
                 r_th = -1;
             }
         }
@@ -193,14 +194,16 @@ void run_client(char *address, int port, char *username, int enc)
     if (ctx != NULL) SSL_CTX_free(ctx);
 }
 
-void disconnect_client(int fd, SSL *ssl, pthread_t th)
+void disconnect_client(SOCK *sock, pthread_t th)
 {
-    pthread_cancel(th);
-    shutdown_fd(fd);
+    if (th != -1) pthread_cancel(th);
+    shutdown_fd(sock->fd);
+    sock->fd = -1;
 
-    if (ssl != NULL)
+    if (sock->ssl != NULL)
     {
-        SSL_free(ssl);
+        SSL_free(sock->ssl);
+        sock->ssl = NULL;
     }
 }
 
@@ -220,13 +223,15 @@ void *client_read(void *sock) {
 
     while (1) {
         int bytes_read = chat_read(c_sock->fd, c_sock->ssl, c_sock->ssl != NULL, c_sock->buffer);
+        printf("%d\n", bytes_read);
 
         if (bytes_read > 0)
         {
             printf("%s\n", c_sock->buffer);
         }
-        else if (bytes_read < 0)
+        else
         {
+            disconnect_client(sock, -1);
             break;
         }
     }

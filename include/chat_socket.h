@@ -16,7 +16,7 @@ typedef struct sock_info SOCK;
 struct sock_info
 {
     struct sockaddr_in addr;
-    int fd; // file descriptor
+    int fd;
     SSL *ssl;
     SSL_CTX *ctx;
     char buffer[BUFFER_SIZE];

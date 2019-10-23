@@ -1,7 +1,5 @@
 #include "chat_socket.h"
 
-#define MAX_CLIENT 10
-
 /**
  * Listen for and accept client connections.
  *
@@ -24,11 +22,12 @@ SOCK start_server(char* address, uint16_t port, int enc,  char *cert, char *key)
  *
  * @param address The address to run the server at.
  * @param port The port used by the server.
+ * @param max_client The maximum amount of clients the server should serve.
  * @param enc Whether the server should use encryption or not (0 or 1).
  * @param cert Path to the cert file to use for encryption.
  * @param key Path to the key file to use for encryption.
  */
-void run_server(char* address, int port, int enc, char *cert, char *key);
+void run_server(char* address, int port, int max_client, int enc, char *cert, char *key);
 
 /**
  * Establish a working fd set for user by a server.
@@ -38,7 +37,7 @@ void run_server(char* address, int port, int enc, char *cert, char *key);
  * @param sock_fd The file descriptor of the server socket.
  * @return The largest integer value of any file descriptor in the set.
  */
-int prepare_fd_set(int *fd_arr, fd_set *set, int sock_fd);
+int prepare_fd_set(int *fd_arr, fd_set *set, int sock_fd, int max_client);
 
 /**
  * Send a packet to a specified destination.
@@ -50,7 +49,7 @@ int prepare_fd_set(int *fd_arr, fd_set *set, int sock_fd);
  * @param dest The destination username to receive the packet.
  * @param enc Specifies if the server is using encryption or not.
  */
-ssize_t handle_user_to_user(int *fd_arr, char **user_arr, SSL **ssl_arr, char *packet, char *dest, int enc);
+ssize_t handle_user_to_user(int *fd_arr, char **user_arr, SSL **ssl_arr, char *packet, char *dest, int enc, int max_client);
 
 /**
  * Reply to client with list of connected users.
@@ -60,7 +59,7 @@ ssize_t handle_user_to_user(int *fd_arr, char **user_arr, SSL **ssl_arr, char *p
  * @param user_arr The array of connected users.
  * @param enc Specify if the server is using encryption or not.
  */
-void handle_list(int fd, SSL *ssl, char **user_arr, int enc);
+void handle_list(int fd, SSL *ssl, char **user_arr, int enc, int max_client);
 
 /**
  * Test newly provided username against currently existing usernames.
@@ -69,4 +68,4 @@ void handle_list(int fd, SSL *ssl, char **user_arr, int enc);
  * @param username The username to check for validity.
  * @return 1 if the username can be used, 0 otherwise.
  */
-int valid_username(char **user_arr, char *username);
+int valid_username(char **user_arr, char *username, int max_client);

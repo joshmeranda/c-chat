@@ -51,10 +51,10 @@ void run_client(char* address, int port, char* username, int enc);
 /**
  * Disconnect the client and end the thread reading input from the socket.
  *
- * @param fd The file descriptor to close.
+ * @param sock The client socket to be closed.
  * @param th The thread ID to close.
  */
-void disconnect_client(int fd, SSL *ssl, pthread_t th);
+void disconnect_client(SOCK *sock, pthread_t th);
 
 /**
  * Form and send a packet to the server.
