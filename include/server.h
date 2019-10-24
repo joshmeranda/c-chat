@@ -6,16 +6,20 @@
  * @param sock Socket to use whe creating the client file descriptor.
  * @return The file descriptor for the client.
  */
-int accept_connection(SOCK sock);
+int accept_connection(sock_t sock);
 
 /**
  * Create an IPv4 TCP socket for the server.
  *
  * @param address The address for the server.
  * @param port The port for the server.
- * @return The sock_info describing the server socket.
+ * @param log The log file for the server.
+ * @param enc Whether or not the socket should operate over TLS.
+ * @param cert The cert file path.
+ * @param key The key file path/
+ * @return The sock_t struct which was created.
  */
-SOCK start_server(char* address, uint16_t port, int enc,  char *cert, char *key);
+sock_t start_server(char* address, int port, FILE *log, int enc, char *cert, char *key);
 
 /**
  * Create and run the chat server.

@@ -65,3 +65,9 @@ vgcore.*
 
 # Certs and Keys
 *.pem
+
+# log files
+*.log
+
+# config files
+*.conf

@@ -11,16 +11,14 @@
 /**
  * Describes a connected socket.
  */
-typedef struct sock_info SOCK;
-
-struct sock_info
+typedef struct
 {
     struct sockaddr_in addr;
     int fd;
     SSL *ssl;
     SSL_CTX *ctx;
     char buffer[BUFFER_SIZE];
-};
+} sock_t;
 
 /**
  * Read data from a file descriptor.

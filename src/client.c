@@ -6,9 +6,9 @@
 #include <string.h>
 #include <libnet.h>
 
-SOCK start_client(char* address, uint16_t port, int enc)
+sock_t start_client(char* address, uint16_t port, int enc)
 {
-    SOCK sock;
+    sock_t sock;
 
     // create the socket
     if ((sock.fd = socket(PF_INET, SOCK_STREAM, 0)) < 0)
@@ -34,7 +34,7 @@ SOCK start_client(char* address, uint16_t port, int enc)
     return sock;
 }
 
-void connect_client(SOCK *sock, int enc)
+void connect_client(sock_t *sock, int enc)
 {
     if (connect(sock->fd, (struct sockaddr *) &sock->addr,
                 sizeof(sock->addr)) < 0)
@@ -97,7 +97,7 @@ char* form_packet(char **packet, ...)
 
 void run_client(char *address, int port, char *username, int enc)
 {
-    SOCK sock;
+    sock_t sock;
     SSL_CTX *ctx = NULL;
     char *src = username;
     pthread_t r_th = -1;
@@ -126,7 +126,6 @@ void run_client(char *address, int port, char *username, int enc)
         // execute command entered by client
         if (strcmp(".send", cmd) == 0)
         {
-            printf("%d\n", sock.fd);
             if (sock.fd == -1)
             {
                 printf("You are not connected to anyone.\n");
@@ -194,7 +193,7 @@ void run_client(char *address, int port, char *username, int enc)
     if (ctx != NULL) SSL_CTX_free(ctx);
 }
 
-void disconnect_client(SOCK *sock, pthread_t th)
+void disconnect_client(sock_t *sock, pthread_t th)
 {
     if (th != -1) pthread_cancel(th);
     shutdown_fd(sock->fd);
@@ -207,7 +206,7 @@ void disconnect_client(SOCK *sock, pthread_t th)
     }
 }
 
-ssize_t client_send(SOCK *sock, char *dest, char *src, char *msg, int enc) {
+ssize_t client_send(sock_t *sock, char *dest, char *src, char *msg, int enc) {
     char* packet;
 
     form_packet(&packet, dest, src, msg, NULL);
@@ -219,7 +218,7 @@ ssize_t client_send(SOCK *sock, char *dest, char *src, char *msg, int enc) {
 }
 
 void *client_read(void *sock) {
-    SOCK *c_sock = (SOCK*) sock;
+    sock_t *c_sock = (sock_t*) sock;
 
     while (1) {
         int bytes_read = chat_read(c_sock->fd, c_sock->ssl, c_sock->ssl != NULL, c_sock->buffer);

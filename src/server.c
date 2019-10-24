@@ -1,11 +1,13 @@
 #include "server.h"
+#include "log.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <errno.h>
 
-int accept_connection(SOCK sock)
+int accept_connection(sock_t sock)
 {
     int client_fd, address_size = sizeof(sock.addr);
 
@@ -13,20 +15,15 @@ int accept_connection(SOCK sock)
                             (struct sockaddr *) &sock.addr,
                             (socklen_t*) &address_size)) < 0)
     {
-        perror("accept");
-        exit(EXIT_FAILURE);
+        return -1;
     }
-
-    printf("Client [a] %s [p] %d connected\n",
-           inet_ntoa(sock.addr.sin_addr),
-           ntohs(sock.addr.sin_port));
 
     return client_fd;
 }
 
-SOCK start_server(char* address, uint16_t port, int enc, char *cert, char *key)
+sock_t start_server(char* address, int port, FILE *log, int enc, char *cert, char *key)
 {
-    SOCK sock;
+    sock_t sock;
     int opt;
 
     if (enc)
@@ -39,16 +36,16 @@ SOCK start_server(char* address, uint16_t port, int enc, char *cert, char *key)
     // Creating socket file descriptor
     if ((sock.fd = socket(PF_INET, SOCK_STREAM, 0)) == 0)
     {
-        perror("socket failed");
-        exit(EXIT_FAILURE);
+        server_event_log_entry(log, CERR, inet_ntoa(sock.addr.sin_addr), ntohs(sock.addr.sin_port), strerror(errno));
+        return sock;
     }
     bzero(&sock.addr, sizeof(sock.addr));
 
     // set socket options
     if (setsockopt(sock.fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)))
     {
-        perror("setsockopt");
-        exit(EXIT_FAILURE);
+        server_event_log_entry(log, CERR, inet_ntoa(sock.addr.sin_addr), ntohs(sock.addr.sin_port), strerror(errno));
+        return sock;exit(EXIT_FAILURE);
     }
 
     sock.addr.sin_family = AF_INET;
@@ -59,19 +56,17 @@ SOCK start_server(char* address, uint16_t port, int enc, char *cert, char *key)
     if (bind(sock.fd, (struct sockaddr *) &sock.addr,
              sizeof(sock.addr)) < 0)
     {
-        perror("bind failed");
-        exit(EXIT_FAILURE);
+        server_event_log_entry(log, CERR, inet_ntoa(sock.addr.sin_addr), ntohs(sock.addr.sin_port), strerror(errno));
+        return sock;
     }
 
     if (listen(sock.fd, 1) < 0)
     {
-        perror("listen");
-        exit(EXIT_FAILURE);
+        server_event_log_entry(log, CERR, inet_ntoa(sock.addr.sin_addr), ntohs(sock.addr.sin_port), strerror(errno));
+        return sock;
     }
 
-    printf("Server [a] %s [p] %d open\n",
-           inet_ntoa(sock.addr.sin_addr),
-           ntohs(sock.addr.sin_port));
+    server_event_log_entry(log, STRT, inet_ntoa(sock.addr.sin_addr), ntohs(sock.addr.sin_port), "SUCCESS");
 
     return sock;
 }
@@ -83,16 +78,24 @@ void run_server(char *address, int port, int max_client, int enc, char *cert, ch
         server_full = (max_client < 1)? 1 : 0;
     SSL **ssl_arr = calloc(max_client, sizeof(SSL*));
     char **user_arr = calloc(max_client, sizeof(char*));
+    FILE *log = fopen("chat.log", "a");
+
+    if (log == NULL)
+    {
+        perror("file open");
+        strerror(errno);
+        return;
+    }
 
     fd_set read_fds;
-    SOCK sock;
+    sock_t sock;
 
     // set all array contents to 0
     memset(fd_arr, 0, max_client * sizeof(int));
     memset(ssl_arr, 0, max_client * sizeof(SSL*));
     memset(user_arr, 0, max_client * sizeof(char*));
 
-    sock = start_server(address, (uint16_t) port, enc, cert, key);
+    sock = start_server(address, (uint16_t) port, log, enc, cert, key);
 
     // Look through file descriptors for received data or new connections
     while (1)
@@ -102,14 +105,20 @@ void run_server(char *address, int port, int max_client, int enc, char *cert, ch
         // wait for a fd to become active (wait indefinitely)
         if (select(max_fd + 1, &read_fds, NULL, NULL, NULL) < 0)
         {
-            perror("select failure");
-            exit(EXIT_FAILURE);
+            server_event_log_entry(log, CERR, inet_ntoa(sock.addr.sin_addr), ntohs(sock.addr.sin_port), strerror(errno));
+            break;
         }
 
         // accept new connections
         if (FD_ISSET(sock.fd, &read_fds))
         {
             int new_fd = accept_connection(sock);
+
+            if (new_fd == -1)
+            {
+                server_event_log_entry(log, CERR, inet_ntoa(sock.addr.sin_addr), ntohs(sock.addr.sin_port), strerror(errno));
+                continue;
+            }
             SSL *ssl = NULL;
 
             if (enc)
@@ -119,34 +128,46 @@ void run_server(char *address, int port, int max_client, int enc, char *cert, ch
                 SSL_accept(ssl);
             }
 
-            if (server_full)
-            {
-                chat_send(new_fd, ssl, enc, "Server is already full.");
-                if (enc) SSL_free(ssl);
-                shutdown_fd(new_fd);
-                printf("Client [a] %s [p] %d closed the connection\n",
-                       inet_ntoa(sock.addr.sin_addr),
-                       ntohs(sock.addr.sin_port));
-                continue;
-            }
-
             // require username to be sent from client on startup
             chat_read(new_fd, ssl, enc, sock.buffer);
 
-            // determine if provided username is valid
             char *username = get_next_word(sock.buffer, DELIMITER);
+
+            if (server_full)
+            {
+                chat_send(new_fd, ssl, enc, "Server is already full.");
+                if (enc)
+                {
+                    SSL_free(ssl);
+                    ssl = NULL;
+                }
+                shutdown_fd(new_fd);
+                client_event_log_entry(log, FULL, inet_ntoa(sock.addr.sin_addr),
+                                       ntohs(sock.addr.sin_port), username);
+                continue;
+            }
+
+            // determine if provided username is valid
             int valid_conn = valid_username(user_arr, username, max_client);
 
             if (valid_conn == 0)
             {
                 chat_send(new_fd, ssl, enc, "Username is already in use, please try another.");
-                if (enc) SSL_free(ssl);
+                client_event_log_entry(log, RJCT, inet_ntoa(sock.addr.sin_addr),
+                                       ntohs(sock.addr.sin_port), username);
+                if (enc)
+                {
+                    SSL_free(ssl);
+                    ssl = NULL;
+                }
                 shutdown_fd(new_fd);
                 free(username);
-                printf("Client [a] %s [p] %d closed the connection\n",
-                       inet_ntoa(sock.addr.sin_addr),
-                       ntohs(sock.addr.sin_port));
+                username = NULL;
+                continue;
             }
+
+            client_event_log_entry(log, JOIN, inet_ntoa(sock.addr.sin_addr),
+                                   ntohs(sock.addr.sin_port), username);
 
             // look for first empty location in array.
             for (i = 0; valid_conn && i < max_client; i++)
@@ -178,9 +199,11 @@ void run_server(char *address, int port, int max_client, int enc, char *cert, ch
                 if (bytes_read == 0)
                 {
                     getpeername(fd_arr[i], (struct sockaddr*) &sock.addr, (socklen_t*) sizeof(sock.addr));
-                    printf("Client [a] %s [p] %d closed the connection\n",
-                           inet_ntoa(sock.addr.sin_addr),
-                           ntohs(sock.addr.sin_port));
+                    client_event_log_entry(log, LEAV,
+                                           inet_ntoa(sock.addr.sin_addr),
+                                           ntohs(sock.addr.sin_port),
+                                           user_arr[i]);
+
                     if (enc)
                     {
                         SSL_free(ssl_arr[i]);
@@ -193,7 +216,7 @@ void run_server(char *address, int port, int max_client, int enc, char *cert, ch
                     user_arr[i] = NULL;
                     server_full = 0;
                 }
-                else
+                else if (bytes_read > 0)
                 {
                     char* packet = sock.buffer;
                     char* dest = get_next_word(packet, DELIMITER);
@@ -215,20 +238,35 @@ void run_server(char *address, int port, int max_client, int enc, char *cert, ch
                             sprintf(message, fmt, dest);
                             chat_send(fd_arr[i], ssl_arr[i], enc, message);
                             free(message);
+                            message = NULL;
                         }
                     }
                     free(dest);
+                    dest = NULL;
+                }
+                else
+                {
+                    server_event_log_entry(log, CERR, inet_ntoa(sock.addr.sin_addr), ntohs(sock.addr.sin_port), strerror(errno));
                 }
             }
         }
     }
 
+    server_event_log_entry(log, STOP, inet_ntoa(sock.addr.sin_addr),
+                           ntohs(sock.addr.sin_port), "SUCESS");
+
     // close server resources
     shutdown_fd(sock.fd);
     if (sock.ctx) SSL_CTX_free(sock.ctx);
+    fclose(log);
+
     free(fd_arr);
     free(ssl_arr);
     free(user_arr);
+
+    fd_arr = NULL;
+    ssl_arr = NULL;
+    user_arr = NULL;
 }
 
 int prepare_fd_set(int *fd_arr, fd_set *set, int sock_fd, int max_client)
@@ -304,6 +342,9 @@ void handle_list(int fd, SSL *ssl, char **user_arr, int enc, int max_client)
 
     free(users);
     free(packet);
+
+    users = NULL;
+    packet = NULL;
 }
 
 int valid_username(char **user_arr, char *username, int max_client)

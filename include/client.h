@@ -1,5 +1,5 @@
-#ifndef CLIENT_SHELL_H
-#define CLIENT_SHELL_H
+#ifndef CLIENT_H
+#define CLIENT_H
 
 #include "chat_socket.h"
 #include <openssl/ssl.h>
@@ -12,7 +12,7 @@
  * @param env Establish am ssl enabled socket.
  * @return The sock_info describing the client socket.
  */
-SOCK start_client(char* address, uint16_t port, int enc);
+sock_t start_client(char* address, uint16_t port, int enc);
 
 /**
  * Connect a client to a server.
@@ -20,7 +20,7 @@ SOCK start_client(char* address, uint16_t port, int enc);
  * @param sock The sock_info of the client.
  * @param enc Connect client to server with ssl.
  */
-void connect_client(SOCK *sock, int enc);
+void connect_client(sock_t *sock, int enc);
 
 /**
  * Generate the prompt for user input.
@@ -54,7 +54,7 @@ void run_client(char* address, int port, char* username, int enc);
  * @param sock The client socket to be closed.
  * @param th The thread ID to close.
  */
-void disconnect_client(SOCK *sock, pthread_t th);
+void disconnect_client(sock_t *sock, pthread_t th);
 
 /**
  * Form and send a packet to the server.
@@ -66,7 +66,7 @@ void disconnect_client(SOCK *sock, pthread_t th);
  * @param enc Whether the message should be encrypted or not.
  * @return The amount of bytes sent over the server.
  */
-ssize_t client_send(SOCK *sock, char* dest, char* src, char* msg, int enc);
+ssize_t client_send(sock_t *sock, char* dest, char* src, char* msg, int enc);
 
 /**
  * Continually read incoming data from the connected socket.
@@ -76,4 +76,4 @@ ssize_t client_send(SOCK *sock, char* dest, char* src, char* msg, int enc);
  */
 void *client_read(void *sock);
 
-#endif // CLIENT_SHELL_H
+#endif // CLIENT_H
