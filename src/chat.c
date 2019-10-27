@@ -1,4 +1,3 @@
-#include "chat_socket.h"
 #include "client.h"
 #include "server.h"
 #include <error.h>
@@ -6,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <signal.h>
 
 #define MAX_CLIENT 1024
 

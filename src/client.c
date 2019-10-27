@@ -5,10 +5,22 @@
 #include <stdlib.h>
 #include <string.h>
 #include <libnet.h>
+#include <signal.h>
 
 sock_t start_client(char* address, uint16_t port, int enc)
 {
     sock_t sock;
+    sock.ssl = NULL;
+
+    if (enc)
+    {
+        SSL_library_init();
+        sock.ctx = init_client_ctx();
+    }
+    else
+    {
+        sock.ctx = NULL;
+    }
 
     // create the socket
     if ((sock.fd = socket(PF_INET, SOCK_STREAM, 0)) < 0)
@@ -28,8 +40,6 @@ sock_t start_client(char* address, uint16_t port, int enc)
         perror("Invalid / unsupported address");
         exit(EXIT_FAILURE);
     }
-
-    sock.ssl = NULL;
 
     return sock;
 }
@@ -98,20 +108,14 @@ char* form_packet(char **packet, ...)
 void run_client(char *address, int port, char *username, int enc)
 {
     sock_t sock;
-    SSL_CTX *ctx = NULL;
     char *src = username;
     pthread_t r_th = -1;
 
     sock.fd = -1;
 
-    if (enc)
-    {
-        SSL_library_init();
-        ctx = init_client_ctx();
-    }
-
-    // read user input until they enter '.exit'
-    while (1)
+    // read user input until they enter '.exit' or exit signal received
+    signal(SIGINT, handle_signal);
+    while (exit_received == 0)
     {
         char input[1024], *cmd, *dest, *msg;
         memset(input, 0, 1024);
@@ -162,7 +166,6 @@ void run_client(char *address, int port, char *username, int enc)
             }
 
             sock = start_client(address, (uint16_t) port, enc);
-            if (enc) sock.ctx = ctx;
 
             connect_client(&sock, enc);
 
@@ -190,7 +193,7 @@ void run_client(char *address, int port, char *username, int enc)
         free(cmd);
     }
 
-    if (ctx != NULL) SSL_CTX_free(ctx);
+    if (sock.ctx != NULL) SSL_CTX_free(sock.ctx);
 }
 
 void disconnect_client(sock_t *sock, pthread_t th)

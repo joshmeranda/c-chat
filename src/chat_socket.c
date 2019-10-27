@@ -6,6 +6,13 @@
 #include <arpa/inet.h>
 #include <openssl/err.h>
 
+int exit_received = 0;
+
+void handle_signal(int sig)
+{
+    exit_received = sig;
+}
+
 ssize_t read_fd(int fd, char buffer[BUFFER_SIZE])
 {
     ssize_t bytes_read = read(fd, buffer, BUFFER_SIZE);

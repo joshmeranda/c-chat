@@ -6,6 +6,7 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <errno.h>
+#include <signal.h>
 
 int accept_connection(sock_t sock)
 {
@@ -31,6 +32,9 @@ sock_t start_server(char* address, int port, FILE *log, int enc, char *cert, cha
         SSL_library_init();
         sock.ctx = init_server_ctx();
         load_certs(sock.ctx, cert, key);
+    }
+    else{
+        sock.ctx = NULL;
     }
 
     // Creating socket file descriptor
@@ -98,14 +102,16 @@ void run_server(char *address, int port, int max_client, int enc, char *cert, ch
     sock = start_server(address, (uint16_t) port, log, enc, cert, key);
 
     // Look through file descriptors for received data or new connections
-    while (1)
+    signal(SIGINT, handle_signal);
+    while (exit_received == 0)
     {
         int i, max_fd = prepare_fd_set(fd_arr, &read_fds, sock.fd, max_client);
 
         // wait for a fd to become active (wait indefinitely)
         if (select(max_fd + 1, &read_fds, NULL, NULL, NULL) < 0)
         {
-            server_event_log_entry(log, CERR, inet_ntoa(sock.addr.sin_addr), ntohs(sock.addr.sin_port), strerror(errno));
+            if (errno != EINTR)
+                server_event_log_entry(log, CERR, inet_ntoa(sock.addr.sin_addr), ntohs(sock.addr.sin_port), strerror(errno));
             break;
         }
 
@@ -253,11 +259,11 @@ void run_server(char *address, int port, int max_client, int enc, char *cert, ch
     }
 
     server_event_log_entry(log, STOP, inet_ntoa(sock.addr.sin_addr),
-                           ntohs(sock.addr.sin_port), "SUCESS");
+                           ntohs(sock.addr.sin_port), "SUCCESS");
 
     // close server resources
     shutdown_fd(sock.fd);
-    if (sock.ctx) SSL_CTX_free(sock.ctx);
+    if (sock.ctx != NULL) SSL_CTX_free(sock.ctx);
     fclose(log);
 
     free(fd_arr);

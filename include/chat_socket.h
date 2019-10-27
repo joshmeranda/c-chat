@@ -20,6 +20,16 @@ typedef struct
     char buffer[BUFFER_SIZE];
 } sock_t;
 
+int exit_received;
+
+/**
+ * Set the value of rec_signal to indicate that a signal has been received
+ * by the program.
+ *
+ * @param sig The received signal.
+ */
+void handle_signal(int sig);
+
 /**
  * Read data from a file descriptor.
  *
