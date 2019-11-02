@@ -3,7 +3,7 @@
 
 #define USERNAME_MAX 25
 #define BUFFER_SIZE USERNAME_MAX * 2 + 3 // enough to span <src>|<dest>|<256 chars>|
-#define DELIMITER "|"
+#define DELIMITER "\r\n"
 
 #include <netinet/in.h>
 #include <openssl/ssl.h>
