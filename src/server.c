@@ -94,11 +94,6 @@ void run_server(char *address, int port, int max_client, int enc, char *cert, ch
     fd_set read_fds;
     sock_t sock;
 
-    // set all array contents to 0
-    memset(fd_arr, 0, max_client * sizeof(int));
-    memset(ssl_arr, 0, max_client * sizeof(SSL*));
-    memset(user_arr, 0, max_client * sizeof(char*));
-
     sock = start_server(address, (uint16_t) port, log, enc, cert, key);
 
     // Look through file descriptors for received data or new connections
