@@ -41,6 +41,8 @@ sock_t start_client(char* address, uint16_t port, int enc)
         exit(EXIT_FAILURE);
     }
 
+    sock.buffer = (char*) malloc(1024);
+
     return sock;
 }
 
@@ -71,37 +73,13 @@ void prompt(char *username)
     printf("%s > ", username);
 }
 
-char* form_packet(char **packet, ...)
-{
-    va_list args;
-    int packet_len = 0;
-    char *arg;
-
-    va_start(args, packet);
-    arg = va_arg(args, char*);
-
-    while (arg != NULL)
-    {
-        packet_len += strlen(arg) + 1;
-        *packet = realloc(*packet, packet_len);
-
-        // append arg to packet terminated by DELIMITER
-        strcat(*packet, arg);
-        strcat(*packet, DELIMITER);
-
-        arg = va_arg(args, char*);
-    }
-    va_end(args);
-
-    return *packet;
-}
-
 void run_client(char *address, int port, char *username, int enc)
 {
     sock_t sock;
     char *src = username;
     pthread_t r_th = -1;
 
+    // start client as unconnected
     sock.fd = -1;
 
     // read user input until they enter '.exit' or exit signal received
@@ -116,7 +94,7 @@ void run_client(char *address, int port, char *username, int enc)
         fgets(input, 1024, stdin);
         input[strcspn(input, "\n")] = '\0';
 
-        cmd = get_next_word(input, " \n\0'");
+        cmd = strtok(input, " ");
 
         // execute command entered by client
         if (strcmp(".send", cmd) == 0)
@@ -124,18 +102,15 @@ void run_client(char *address, int port, char *username, int enc)
             if (sock.fd == -1)
             {
                 printf("You are not connected to anyone.\n");
-                free(cmd);
                 continue;
             }
 
             // Parse destination and message from remainder of input1
             // assumes a singular space between command, dest, and msg
-            dest = get_next_word(&input[strlen(cmd) + 1], " \n\0");
-            msg = &input[strlen(cmd) + strlen(dest) + 2];
+            dest = strtok(NULL, " ");
+            msg = strtok(NULL, "\0");
 
             client_send(&sock, dest, src, msg, enc);
-
-            free(dest);
         }
         else if (strcmp(".exit", cmd) == 0) // close connection, leave shell loop
         {
@@ -144,7 +119,6 @@ void run_client(char *address, int port, char *username, int enc)
                 r_th = -1;
             }
 
-            free(cmd);
             break;
         }
         else if (strcmp(".connect", cmd) == 0)
@@ -152,7 +126,6 @@ void run_client(char *address, int port, char *username, int enc)
             if (sock.fd != -1)
             {
                 printf("You are already connected\n");
-                free(cmd);
                 continue;
             }
 
@@ -163,6 +136,7 @@ void run_client(char *address, int port, char *username, int enc)
             // Start new thread for reading from socket
             pthread_create(&r_th, NULL, client_read, &sock);
 
+            // Send initial username packet
             client_send(&sock, src, NULL, NULL, enc);
         }
         else if (strcmp(".disconnect", cmd) == 0) // close connection, stay in shell loop
@@ -180,8 +154,6 @@ void run_client(char *address, int port, char *username, int enc)
         {
             printf("unsupported command %s\n", cmd);
         }
-
-        free(cmd);
     }
 
     if (sock.ctx != NULL) SSL_CTX_free(sock.ctx);
@@ -192,6 +164,7 @@ void disconnect_client(sock_t *sock, pthread_t th)
     if (th != -1) pthread_cancel(th);
     shutdown_fd(sock->fd);
     sock->fd = -1;
+    free(sock->buffer);
 
     if (sock->ssl != NULL)
     {
@@ -200,7 +173,8 @@ void disconnect_client(sock_t *sock, pthread_t th)
     }
 }
 
-ssize_t client_send(sock_t *sock, char *dest, char *src, char *msg, int enc) {
+ssize_t client_send(sock_t *sock, char *dest, char *src, char *msg, int enc)
+{
     char* packet = NULL;
 
     form_packet(&packet, dest, src, msg, NULL);
@@ -211,7 +185,8 @@ ssize_t client_send(sock_t *sock, char *dest, char *src, char *msg, int enc) {
     return bytes_sent;
 }
 
-void *client_read(void *sock) {
+void *client_read(void *sock)
+{
     sock_t *c_sock = (sock_t*) sock;
 
     while (1) {

@@ -30,15 +30,6 @@ void connect_client(sock_t *sock, int enc);
 void prompt(char *username);
 
 /**
- * Form the packet to send to the server. The argument list must end in NULL.
- *
- * @param packet Pointer to the packet string.
- * @param ... The values for the sections of tha packet.
- * @return
- */
-char* form_packet(char **packet, ...);
-
-/**
  * Create and run a chat client.
  *
  * @param address The address of the server to connect to.

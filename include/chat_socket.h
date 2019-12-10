@@ -2,7 +2,7 @@
 #define CHAT_SOCKET_H
 
 #define USERNAME_MAX 25
-#define BUFFER_SIZE USERNAME_MAX * 2 + 3 // enough to span <src>|<dest>|<256 chars>|
+#define BUFFER_SIZE 1024 // enough to span <src>|<dest>|<256 chars>|
 #define DELIMITER "\r\n"
 
 #include <netinet/in.h>
@@ -17,7 +17,7 @@ typedef struct
     int fd;
     SSL *ssl;
     SSL_CTX *ctx;
-    char buffer[BUFFER_SIZE];
+    char *buffer;
 } sock_t;
 
 int exit_received;
@@ -47,16 +47,6 @@ ssize_t read_fd(int fd, char *buffer);
  * @return The amount of data written to the file descriptor, or -1 on error.
  */
 ssize_t send_fd(int fd, char* message);
-
-/**
- * Get the next word in a string, meaning there is a ' ' or '\n' ending the
- * string.
- *
- * @param input The string to parse.
- * @param term The possible terminating characters for the next word.
- * @return Pointer to the null terminated word, needs to be freed after use.
- */
-char *get_next_word(char *input, char *term);
 
 /**
  * Shutdown a file descriptor.
@@ -109,8 +99,53 @@ ssize_t read_ssl(SSL *ssl, char *buffer);
  */
 ssize_t send_ssl(SSL *ssl, char *message);
 
+/**
+ * Send data over either encrypted or unencrypted connection.
+ *
+ * @param fd The file descriptor for unencrypted communication
+ * @param ssl The ssl connection for encrypted communication.
+ * @param enc Whether of not to communicate over encrypted connection.
+ * @param packet The data to send.
+ * @return The amount of bytes sent.
+ */
 ssize_t chat_send(int fd, SSL *ssl, int enc, char *packet);
 
+/**
+ * Read data over either encrypted or unencrypted connection.
+ *
+ * @param fd The file descriptor for unencrypted communication
+ * @param ssl The ssl connection for encrypted communication.
+ * @param enc Whether of not to communicate over encrypted connection.
+ * @param buffer The buffer into which data is to be read..
+ * @return The amount of bytes read.
+ */
 ssize_t chat_read(int fd, SSL *ssl, int enc, char *buffer);
+
+/**
+ * Form the packet to send to the server. The argument list must end in NULL.
+ *
+ * @param packet Pointer to the packet string.
+ * @param ... The values for the sections of tha packet.
+ * @return
+ */
+char* form_packet(char **packet, ...);
+
+/**
+ * Get the next word in a string, meaning there is a ' ' or '\n' ending the
+ * string.
+ *
+ * @param packet Reference to the string to parse.
+ * @return Pointer to the null terminated word, needs to be freed after use.
+ */
+char *get_next_section(char **packet);
+
+/**
+ * Append a section to the packet.
+ *
+ * @param packet Reference to the packet to add a section to.
+ * @param section The section to append.
+ * @return The pointer to the new packet.
+ */
+char *append_section(char **packet, char *section);
 
 #endif // CHAT_SOCKET_H

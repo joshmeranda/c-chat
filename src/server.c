@@ -22,57 +22,58 @@ int accept_connection(sock_t sock)
     return client_fd;
 }
 
-sock_t start_server(char* address, int port, FILE *log, int enc, char *cert, char *key)
+sock_t start_server(char* address, int port, sock_t *sock, FILE *log, int enc, char *cert, char *key)
 {
-    sock_t sock;
     int opt;
 
     if (enc)
     {
         SSL_library_init();
-        sock.ctx = init_server_ctx();
-        load_certs(sock.ctx, cert, key);
+        sock->ctx = init_server_ctx();
+        load_certs(sock->ctx, cert, key);
     }
     else{
-        sock.ctx = NULL;
+        sock->ctx = NULL;
     }
 
     // Creating socket file descriptor
-    if ((sock.fd = socket(PF_INET, SOCK_STREAM, 0)) == 0)
+    if ((sock->fd = socket(PF_INET, SOCK_STREAM, 0)) == 0)
     {
-        server_event_log_entry(log, CERR, inet_ntoa(sock.addr.sin_addr), ntohs(sock.addr.sin_port), strerror(errno));
-        return sock;
+        server_event_log_entry(log, CERR, inet_ntoa(sock->addr.sin_addr), ntohs(sock->addr.sin_port), strerror(errno));
+        return *sock;
     }
-    bzero(&sock.addr, sizeof(sock.addr));
+    bzero(&sock->addr, sizeof(sock->addr));
 
     // set socket options
-    if (setsockopt(sock.fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)))
+    if (setsockopt(sock->fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)))
     {
-        server_event_log_entry(log, CERR, inet_ntoa(sock.addr.sin_addr), ntohs(sock.addr.sin_port), strerror(errno));
-        return sock;
+        server_event_log_entry(log, CERR, inet_ntoa(sock->addr.sin_addr), ntohs(sock->addr.sin_port), strerror(errno));
+        return *sock;
     }
 
-    sock.addr.sin_family = AF_INET;
-    inet_pton(AF_INET, address, &sock.addr.sin_addr);
-    sock.addr.sin_port = htons(port);
+    sock->addr.sin_family = AF_INET;
+    inet_pton(AF_INET, address, &sock->addr.sin_addr);
+    sock->addr.sin_port = htons(port);
 
     // Forcefully attaching socket to the port 8080
-    if (bind(sock.fd, (struct sockaddr *) &sock.addr,
-             sizeof(sock.addr)) < 0)
+    if (bind(sock->fd, (struct sockaddr *) &sock->addr,
+             sizeof(sock->addr)) < 0)
     {
-        server_event_log_entry(log, CERR, inet_ntoa(sock.addr.sin_addr), ntohs(sock.addr.sin_port), strerror(errno));
-        return sock;
+        server_event_log_entry(log, CERR, inet_ntoa(sock->addr.sin_addr), ntohs(sock->addr.sin_port), strerror(errno));
+        return *sock;
     }
 
-    if (listen(sock.fd, 1) < 0)
+    if (listen(sock->fd, 1) < 0)
     {
-        server_event_log_entry(log, CERR, inet_ntoa(sock.addr.sin_addr), ntohs(sock.addr.sin_port), strerror(errno));
-        return sock;
+        server_event_log_entry(log, CERR, inet_ntoa(sock->addr.sin_addr), ntohs(sock->addr.sin_port), strerror(errno));
+        return *sock;
     }
 
-    server_event_log_entry(log, STRT, inet_ntoa(sock.addr.sin_addr), ntohs(sock.addr.sin_port), "SUCCESS");
+    sock->buffer = malloc(1024);
 
-    return sock;
+    server_event_log_entry(log, STRT, inet_ntoa(sock->addr.sin_addr), ntohs(sock->addr.sin_port), "SUCCESS");
+
+    return *sock;
 }
 
 void run_server(char *address, int port, int max_client, int enc, char *cert, char *key)
@@ -92,9 +93,7 @@ void run_server(char *address, int port, int max_client, int enc, char *cert, ch
     }
 
     fd_set read_fds;
-    sock_t sock;
-
-    sock = start_server(address, (uint16_t) port, log, enc, cert, key);
+    sock_t sock = start_server(address, (uint16_t) port, &sock, log, enc, cert, key);
 
     // Look through file descriptors for received data or new connections
     signal(SIGINT, handle_signal);
@@ -132,7 +131,7 @@ void run_server(char *address, int port, int max_client, int enc, char *cert, ch
             // require username to be sent from client on startup
             chat_read(new_fd, ssl, enc, sock.buffer);
 
-            char *username = get_next_word(sock.buffer, DELIMITER);
+            char *username = get_next_section(&sock.buffer);
 
             if (server_full)
             {
@@ -196,7 +195,6 @@ void run_server(char *address, int port, int max_client, int enc, char *cert, ch
             {
                 int bytes_read = chat_read(fd_arr[i], ssl_arr[i], enc, sock.buffer);
 
-                // todo handle read_bytes == -1
                 if (bytes_read == 0)
                 {
                     getpeername(fd_arr[i], (struct sockaddr*) &sock.addr, (socklen_t*) sizeof(sock.addr));
@@ -220,8 +218,8 @@ void run_server(char *address, int port, int max_client, int enc, char *cert, ch
                 else if (bytes_read > 0)
                 {
                     char* packet = sock.buffer;
-                    char* dest = get_next_word(packet, DELIMITER);
-                    packet = &packet[strlen(dest)];
+                    char* dest = get_next_section(&packet);
+                    packet += strlen(dest) + strlen(DELIMITER);
 
                     if (strcmp(dest, "LIST") == 0)
                     {
@@ -264,6 +262,7 @@ void run_server(char *address, int port, int max_client, int enc, char *cert, ch
     free(fd_arr);
     free(ssl_arr);
     free(user_arr);
+    free(sock.buffer);
 
     fd_arr = NULL;
     ssl_arr = NULL;

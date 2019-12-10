@@ -45,16 +45,6 @@ ssize_t send_fd(int fd, char* message)
     return bytes_sent;
 }
 
-char *get_next_word(char *input, char *term)
-{
-    int len = strcspn(input, term) + 1;
-    char *word = (char*) malloc(len);
-    strncpy(word, input, len);
-    word[len - 1] = '\0';
-
-    return word;
-}
-
 int shutdown_fd(int fd)
 {
     if (shutdown(fd, SHUT_RDWR) < 0)
@@ -177,4 +167,43 @@ ssize_t chat_read(int fd, SSL *ssl, int enc, char *buffer)
         return read_ssl(ssl, buffer);
     else
         return read_fd(fd, buffer);
+}
+
+char* form_packet(char **packet, ...)
+{
+    va_list args;
+    char *arg;
+
+    va_start(args, packet);
+    arg = va_arg(args, char*);
+
+    while (arg != NULL)
+    {
+        append_section(packet, arg);
+        arg = va_arg(args, char*);
+    }
+    va_end(args);
+
+    return *packet;
+}
+
+char *get_next_section(char **packet)
+{
+    return strndup(*packet, strstr(*packet, DELIMITER) - *packet);
+}
+
+char *append_section(char **packet, char *section)
+{
+    if (*packet == NULL)
+    {
+        *packet = malloc(strlen(section) + strlen(DELIMITER) + 1);
+        strcpy(*packet, section);
+    }
+    else
+    {
+        *packet = realloc(*packet, strlen(*packet) + strlen(section) + strlen(DELIMITER) + 1);
+        strcat(*packet, section);
+    }
+
+    return strcat(*packet, DELIMITER);
 }
