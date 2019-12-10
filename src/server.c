@@ -129,13 +129,13 @@ void run_server(char *address, int port, int max_client, int enc, char *cert, ch
             }
 
             // require username to be sent from client on startup
-            chat_read(new_fd, ssl, enc, sock.buffer);
+            chat_read(new_fd, ssl, sock.buffer);
 
             char *username = get_next_section(&sock.buffer);
 
             if (server_full)
             {
-                chat_send(new_fd, ssl, enc, "Server is already full.");
+                chat_send(new_fd, ssl, "Server is already full.");
                 if (enc)
                 {
                     SSL_free(ssl);
@@ -152,7 +152,7 @@ void run_server(char *address, int port, int max_client, int enc, char *cert, ch
 
             if (valid_conn == 0)
             {
-                chat_send(new_fd, ssl, enc, "Username is already in use, please try another.");
+                chat_send(new_fd, ssl, "Username is already in use, please try another.");
                 client_event_log_entry(log, RJCT, inet_ntoa(sock.addr.sin_addr),
                                        ntohs(sock.addr.sin_port), username);
                 if (enc)
@@ -193,7 +193,7 @@ void run_server(char *address, int port, int max_client, int enc, char *cert, ch
         {
             if (FD_ISSET(fd_arr[i], &read_fds))
             {
-                int bytes_read = chat_read(fd_arr[i], ssl_arr[i], enc, sock.buffer);
+                int bytes_read = chat_read(fd_arr[i], ssl_arr[i], sock.buffer);
 
                 if (bytes_read == 0)
                 {
@@ -223,11 +223,11 @@ void run_server(char *address, int port, int max_client, int enc, char *cert, ch
 
                     if (strcmp(dest, "LIST") == 0)
                     {
-                        handle_list(fd_arr[i], ssl_arr[i], user_arr, enc, max_client);
+                        handle_list(fd_arr[i], ssl_arr[i], user_arr, max_client);
                     }
                     else
                     {
-                        if (handle_user_to_user(fd_arr, user_arr, ssl_arr, packet, dest, enc, max_client) == -1)
+                        if (handle_user_to_user(fd_arr, user_arr, ssl_arr, packet, dest, max_client) == -1)
                         {
                             // no matching username was found
                             char *message, *fmt = "No such user '%s'";
@@ -235,7 +235,7 @@ void run_server(char *address, int port, int max_client, int enc, char *cert, ch
 
                             message = malloc(msg_len);
                             sprintf(message, fmt, dest);
-                            chat_send(fd_arr[i], ssl_arr[i], enc, message);
+                            chat_send(fd_arr[i], ssl_arr[i], message);
                             free(message);
                             message = NULL;
                         }
@@ -286,21 +286,21 @@ int prepare_fd_set(int *fd_arr, fd_set *set, int sock_fd, int max_client)
     return max_fd;
 }
 
-ssize_t handle_user_to_user(int *fd_arr, char **user_arr, SSL **ssl_arr, char *packet, char *dest, int enc, int max_client)
+ssize_t handle_user_to_user(int *fd_arr, char **user_arr, SSL **ssl_arr, char *packet, char *dest, int max_client)
 {
     // iterate through user_arr to find username matching dest
     for (int i = 0; i < max_client; i++)
     {
         if (user_arr[i] != NULL && strcmp(user_arr[i], dest) == 0)
         {
-            return chat_send(fd_arr[i], ssl_arr[i], enc, packet);
+            return chat_send(fd_arr[i], ssl_arr[i], packet);
         }
     }
 
     return -1;
 }
 
-void handle_list(int fd, SSL *ssl, char **user_arr, int enc, int max_client)
+void handle_list(int fd, SSL *ssl, char **user_arr, int max_client)
 {
     char *users;
     int len = 0;
@@ -338,7 +338,7 @@ void handle_list(int fd, SSL *ssl, char **user_arr, int enc, int max_client)
     strcat(packet, users);
     strcat(packet, DELIMITER);
 
-    chat_send(fd, ssl, enc, packet);
+    chat_send(fd, ssl, packet);
 
     free(users);
     free(packet);

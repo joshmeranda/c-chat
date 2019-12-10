@@ -46,7 +46,6 @@ void run_client(char* address, int port, char* username, int enc);
  * @param th The thread ID to close.
  */
 void disconnect_client(sock_t *sock, pthread_t th);
-
 /**
  * Form and send a packet to the server.
  *
@@ -54,10 +53,9 @@ void disconnect_client(sock_t *sock, pthread_t th);
  * @param dest The destination username to send the packet to.
  * @param src The source username of the packet.
  * @param msg The message to send.
- * @param enc Whether the message should be encrypted or not.
  * @return The amount of bytes sent over the server.
  */
-ssize_t client_send(sock_t *sock, char* dest, char* src, char* msg, int enc);
+ssize_t client_send(sock_t *sock, char* dest, char* src, char* msg);
 
 /**
  * Continually read incoming data from the connected socket.

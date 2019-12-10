@@ -54,7 +54,7 @@ int prepare_fd_set(int *fd_arr, fd_set *set, int sock_fd, int max_client);
  * @param dest The destination username to receive the packet.
  * @param enc Specifies if the server is using encryption or not.
  */
-ssize_t handle_user_to_user(int *fd_arr, char **user_arr, SSL **ssl_arr, char *packet, char *dest, int enc, int max_client);
+ssize_t handle_user_to_user(int *fd_arr, char **user_arr, SSL **ssl_arr, char *packet, char *dest, int max_client);
 
 /**
  * Reply to client with list of connected users.
@@ -64,7 +64,7 @@ ssize_t handle_user_to_user(int *fd_arr, char **user_arr, SSL **ssl_arr, char *p
  * @param user_arr The array of connected users.
  * @param enc Specify if the server is using encryption or not.
  */
-void handle_list(int fd, SSL *ssl, char **user_arr, int enc, int max_client);
+void handle_list(int fd, SSL *ssl, char **user_arr, int max_client);
 
 /**
  * Test newly provided username against currently existing usernames.

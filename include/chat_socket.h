@@ -1,7 +1,6 @@
 #ifndef CHAT_SOCKET_H
 #define CHAT_SOCKET_H
 
-#define USERNAME_MAX 25
 #define BUFFER_SIZE 1024 // enough to span <src>|<dest>|<256 chars>|
 #define DELIMITER "\r\n"
 
@@ -104,22 +103,20 @@ ssize_t send_ssl(SSL *ssl, char *message);
  *
  * @param fd The file descriptor for unencrypted communication
  * @param ssl The ssl connection for encrypted communication.
- * @param enc Whether of not to communicate over encrypted connection.
  * @param packet The data to send.
  * @return The amount of bytes sent.
  */
-ssize_t chat_send(int fd, SSL *ssl, int enc, char *packet);
+ssize_t chat_send(int fd, SSL *ssl, char *packet);
 
 /**
  * Read data over either encrypted or unencrypted connection.
  *
  * @param fd The file descriptor for unencrypted communication
  * @param ssl The ssl connection for encrypted communication.
- * @param enc Whether of not to communicate over encrypted connection.
  * @param buffer The buffer into which data is to be read..
  * @return The amount of bytes read.
  */
-ssize_t chat_read(int fd, SSL *ssl, int enc, char *buffer);
+ssize_t chat_read(int fd, SSL *ssl, char *buffer);
 
 /**
  * Form the packet to send to the server. The argument list must end in NULL.

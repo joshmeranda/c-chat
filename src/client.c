@@ -110,7 +110,7 @@ void run_client(char *address, int port, char *username, int enc)
             dest = strtok(NULL, " ");
             msg = strtok(NULL, "\0");
 
-            client_send(&sock, dest, src, msg, enc);
+            client_send(&sock, dest, src, msg);
         }
         else if (strcmp(".exit", cmd) == 0) // close connection, leave shell loop
         {
@@ -137,7 +137,7 @@ void run_client(char *address, int port, char *username, int enc)
             pthread_create(&r_th, NULL, client_read, &sock);
 
             // Send initial username packet
-            client_send(&sock, src, NULL, NULL, enc);
+            client_send(&sock, src, NULL, NULL);
         }
         else if (strcmp(".disconnect", cmd) == 0) // close connection, stay in shell loop
         {
@@ -148,7 +148,7 @@ void run_client(char *address, int port, char *username, int enc)
         }
         else if (strcmp(".list", cmd) == 0)
         {
-            client_send(&sock, "LIST", src, NULL, enc);
+            client_send(&sock, "LIST", src, NULL);
         }
         else
         {
@@ -173,13 +173,13 @@ void disconnect_client(sock_t *sock, pthread_t th)
     }
 }
 
-ssize_t client_send(sock_t *sock, char *dest, char *src, char *msg, int enc)
+ssize_t client_send(sock_t *sock, char *dest, char *src, char *msg)
 {
     char* packet = NULL;
 
     form_packet(&packet, dest, src, msg, NULL);
 
-    int bytes_sent = chat_send(sock->fd, sock->ssl, enc, packet);
+    int bytes_sent = chat_send(sock->fd, sock->ssl, packet);
 
     free(packet);
     return bytes_sent;
@@ -190,7 +190,7 @@ void *client_read(void *sock)
     sock_t *c_sock = (sock_t*) sock;
 
     while (1) {
-        int bytes_read = chat_read(c_sock->fd, c_sock->ssl, c_sock->ssl != NULL, c_sock->buffer);
+        int bytes_read = chat_read(c_sock->fd, c_sock->ssl, c_sock->buffer);
 
         if (bytes_read > 0)
         {

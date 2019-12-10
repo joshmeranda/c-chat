@@ -66,8 +66,7 @@ char* get_log_str(log_t code);
  * @param port The port of the connection.
  * @param username The username of the connection.
  */
-void client_event_log_entry(FILE *log, log_t code, char *address, int port,
-                            char *username);
+void client_event_log_entry(FILE *log, log_t code, char *address, int port, char *username);
 
 /**
  * Append a server event log entry with the given code.
@@ -77,7 +76,6 @@ void client_event_log_entry(FILE *log, log_t code, char *address, int port,
  * @param address The ip of the connection.
  * @param port The port of the connection.
  */
-void server_event_log_entry(FILE *log, log_t code, char *address, int port,
-                            char *msg);
+void server_event_log_entry(FILE *log, log_t code, char *address, int port, char *msg);
 
 #endif // LOG_H

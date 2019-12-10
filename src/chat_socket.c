@@ -153,17 +153,17 @@ ssize_t send_ssl(SSL *ssl, char *message)
     return bytes_sent;
 }
 
-ssize_t chat_send(int fd, SSL *ssl, int enc, char *packet)
+ssize_t chat_send(int fd, SSL *ssl, char *packet)
 {
-    if (enc)
+    if (ssl != NULL)
         return send_ssl(ssl, packet);
     else
         return send_fd(fd, packet);
 }
 
-ssize_t chat_read(int fd, SSL *ssl, int enc, char *buffer)
+ssize_t chat_read(int fd, SSL *ssl, char *buffer)
 {
-    if (enc)
+    if (ssl != NULL)
         return read_ssl(ssl, buffer);
     else
         return read_fd(fd, buffer);
