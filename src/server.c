@@ -49,7 +49,7 @@ sock_t start_server(char* address, int port, FILE *log, int enc, char *cert, cha
     if (setsockopt(sock.fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)))
     {
         server_event_log_entry(log, CERR, inet_ntoa(sock.addr.sin_addr), ntohs(sock.addr.sin_port), strerror(errno));
-        return sock;exit(EXIT_FAILURE);
+        return sock;
     }
 
     sock.addr.sin_family = AF_INET;
@@ -352,9 +352,7 @@ int valid_username(char **user_arr, char *username, int max_client)
 {
     for (int i = 0; i < max_client; i++)
     {
-        if (user_arr[i] == NULL) continue;
-
-        if (strcmp(user_arr[i], username) == 0) return 0;
+        if (user_arr[i] != NULL && strcmp(user_arr[i], username) == 0) return 0;
     }
 
     return 1;

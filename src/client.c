@@ -74,30 +74,21 @@ void prompt(char *username)
 char* form_packet(char **packet, ...)
 {
     va_list args;
-    int packet_len = 1;
+    int packet_len = 0;
     char *arg;
 
-    // get the length of the packet
     va_start(args, packet);
     arg = va_arg(args, char*);
+
     while (arg != NULL)
     {
-        packet_len += strlen(arg) + 1; // length of section with DELIMITER
-        arg = va_arg(args, char*);
-    }
-    va_end(args);
+        packet_len += strlen(arg) + 1;
+        *packet = realloc(*packet, packet_len);
 
-    // allocate space for the packet
-    *packet = (char *) malloc(packet_len);
-    memset(*packet, 0, packet_len);
-
-    // form the packet
-    va_start(args, packet);
-    arg = va_arg(args, char*);
-    while (arg != NULL)
-    {
+        // append arg to packet terminated by DELIMITER
         strcat(*packet, arg);
         strcat(*packet, DELIMITER);
+
         arg = va_arg(args, char*);
     }
     va_end(args);
@@ -210,7 +201,7 @@ void disconnect_client(sock_t *sock, pthread_t th)
 }
 
 ssize_t client_send(sock_t *sock, char *dest, char *src, char *msg, int enc) {
-    char* packet;
+    char* packet = NULL;
 
     form_packet(&packet, dest, src, msg, NULL);
 
