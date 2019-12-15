@@ -13,6 +13,7 @@
 typedef struct
 {
     struct sockaddr_in addr;
+    char *username;
     int fd;
     SSL *ssl;
     SSL_CTX *ctx;
@@ -50,10 +51,10 @@ ssize_t send_fd(int fd, char* message);
 /**
  * Shutdown a file descriptor.
  *
- * @param fd The file descriptor to shut down.
+ * @param sock The socket to shutdown.
  * @return 0 if successful, -1 if failure.
  */
-int shutdown_fd(int fd);
+int shutdown_socket(sock_t *sock);
 
 /**
  * Check the validity of the cert and key files, and adjust the context
@@ -101,22 +102,20 @@ ssize_t send_ssl(SSL *ssl, char *message);
 /**
  * Send data over either encrypted or unencrypted connection.
  *
- * @param fd The file descriptor for unencrypted communication
- * @param ssl The ssl connection for encrypted communication.
+ * @param sock The socket through which to communicate.
  * @param packet The data to send.
  * @return The amount of bytes sent.
  */
-ssize_t chat_send(int fd, SSL *ssl, char *packet);
+ssize_t chat_send(sock_t *sock, char *packet);
 
 /**
  * Read data over either encrypted or unencrypted connection.
  *
- * @param fd The file descriptor for unencrypted communication
- * @param ssl The ssl connection for encrypted communication.
+ * @param sock The socket through which to communicate.
  * @param buffer The buffer into which data is to be read..
  * @return The amount of bytes read.
  */
-ssize_t chat_read(int fd, SSL *ssl, char *buffer);
+ssize_t chat_read(sock_t *sock, char *buffer);
 
 /**
  * Form the packet to send to the server. The argument list must end in NULL.

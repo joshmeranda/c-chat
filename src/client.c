@@ -7,49 +7,47 @@
 #include <libnet.h>
 #include <signal.h>
 
-sock_t start_client(char* address, uint16_t port, int enc)
+sock_t start_client(char* address, uint16_t port, sock_t *sock, int enc)
 {
-    sock_t sock;
-    sock.ssl = NULL;
+    sock->ssl = NULL;
 
     if (enc)
     {
         SSL_library_init();
-        sock.ctx = init_client_ctx();
+        sock->ctx = init_client_ctx();
     }
     else
     {
-        sock.ctx = NULL;
+        sock->ctx = NULL;
     }
 
     // create the socket
-    if ((sock.fd = socket(PF_INET, SOCK_STREAM, 0)) < 0)
+    if ((sock->fd = socket(PF_INET, SOCK_STREAM, 0)) < 0)
     {
         perror("Socket failure");
         exit(EXIT_FAILURE);
     }
 
     // zero memory block
-    bzero(&sock.addr, sizeof(sock.addr));
+    bzero(&sock->addr, sizeof(sock->addr));
 
-    sock.addr.sin_family = AF_INET;
-    sock.addr.sin_port = htons(port);
+    sock->addr.sin_family = AF_INET;
+    sock->addr.sin_port = htons(port);
 
-    if (inet_pton(AF_INET, address, &sock.addr.sin_addr) <= 0)
+    if (inet_pton(AF_INET, address, &sock->addr.sin_addr) <= 0)
     {
         perror("Invalid / unsupported address");
         exit(EXIT_FAILURE);
     }
 
-    sock.buffer = (char*) malloc(1024);
+    sock->buffer = (char*) malloc(1024);
 
-    return sock;
+    return *sock;
 }
 
 void connect_client(sock_t *sock, int enc)
 {
-    if (connect(sock->fd, (struct sockaddr *) &sock->addr,
-                sizeof(sock->addr)) < 0)
+    if ((connect(sock->fd, (struct sockaddr *) &(sock->addr), sizeof(sock->addr))) < 0)
     {
         perror("Connection failure");
         exit(EXIT_FAILURE);
@@ -81,6 +79,7 @@ void run_client(char *address, int port, char *username, int enc)
 
     // start client as unconnected
     sock.fd = -1;
+    sock.username = username;
 
     // read user input until they enter '.exit' or exit signal received
     signal(SIGINT, handle_signal);
@@ -129,7 +128,7 @@ void run_client(char *address, int port, char *username, int enc)
                 continue;
             }
 
-            sock = start_client(address, (uint16_t) port, enc);
+            sock = start_client(address, (uint16_t) port, &sock, enc);
 
             connect_client(&sock, enc);
 
@@ -162,9 +161,9 @@ void run_client(char *address, int port, char *username, int enc)
 void disconnect_client(sock_t *sock, pthread_t th)
 {
     if (th != -1) pthread_cancel(th);
-    shutdown_fd(sock->fd);
+    shutdown_socket(sock);
     sock->fd = -1;
-    free(sock->buffer);
+    // free(sock->buffer);
 
     if (sock->ssl != NULL)
     {
@@ -179,7 +178,7 @@ ssize_t client_send(sock_t *sock, char *dest, char *src, char *msg)
 
     form_packet(&packet, dest, src, msg, NULL);
 
-    int bytes_sent = chat_send(sock->fd, sock->ssl, packet);
+    int bytes_sent = chat_send(sock, packet);
 
     free(packet);
     return bytes_sent;
@@ -190,7 +189,7 @@ void *client_read(void *sock)
     sock_t *c_sock = (sock_t*) sock;
 
     while (1) {
-        int bytes_read = chat_read(c_sock->fd, c_sock->ssl, c_sock->buffer);
+        int bytes_read = chat_read(c_sock, c_sock->buffer);
 
         if (bytes_read > 0)
         {

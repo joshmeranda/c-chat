@@ -1,12 +1,16 @@
 #include "chat_socket.h"
 
 /**
- * Listen for and accept client connections.
+ * Accept a new client connection.
  *
- * @param sock Socket to use whe creating the client file descriptor.
- * @return The file descriptor for the client.
+ * @param sock The socket s truct to modify.
+ * @param fd The filde descriptor associated with incoming client connections (server fd).
+ * @param log The log file to send logs to.
+ * @param enc Whether to create an encrypted connection or not.
+ * @return The file descriptor for the new connection, or -1 on error;.
  */
-int accept_connection(sock_t sock);
+int accept_connection(sock_t **sock, int fd, FILE *log, int enc);
+
 
 /**
  * Create an IPv4 TCP socket for the server.
@@ -37,40 +41,37 @@ void run_server(char* address, int port, int max_client, int enc, char *cert, ch
 /**
  * Establish a working fd set for user by a server.
  *
- * @param fd_arr An array of connected file descriptors.
+ * @param sock_t Array of sockets from which to pull fds from.
+ * @param server_fd The file descriptor the server is listing for new connections on.
  * @param set The FD_SET to be established.
  * @param sock_fd The file descriptor of the server socket.
  * @return The largest integer value of any file descriptor in the set.
  */
-int prepare_fd_set(int *fd_arr, fd_set *set, int sock_fd, int max_client);
+int prepare_fd_set(sock_t **sock_arr, int server_fd, fd_set *set, int max_client);
 
 /**
  * Send a packet to a specified destination.
  *
- * @param fd_arr Array of all file descriptors.
- * @param user_arr Array of all usernames.
- * @param ssl_arr Array of ssl connections.
+ * @param sock_arr Array of all available socket connections.
  * @param packet The packet to be sent.
  * @param dest The destination username to receive the packet.
- * @param enc Specifies if the server is using encryption or not.
+ * @param max_client The size of the sock_arr.
  */
-ssize_t handle_user_to_user(int *fd_arr, char **user_arr, SSL **ssl_arr, char *packet, char *dest, int max_client);
+ssize_t handle_user_to_user(sock_t **sock_arr, char *packet, char *dest, int max_client);
 
 /**
  * Reply to client with list of connected users.
  *
- * @param fd The file descriptor to send the reply.
- * @param ssl The ssl connection to send the reply if encryption is enabled.
- * @param user_arr The array of connected users.
+ * @param sock The socket to which the message is to be sent.
  * @param enc Specify if the server is using encryption or not.
  */
-void handle_list(int fd, SSL *ssl, char **user_arr, int max_client);
+void handle_list(sock_t *dest_sock, sock_t **sock, int max_client);
 
 /**
  * Test newly provided username against currently existing usernames.
  *
- * @param user_arr The array of currently existing usernames.
+ * @param sock_arr Array of sockets from which to test usernames.
  * @param username The username to check for validity.
  * @return 1 if the username can be used, 0 otherwise.
  */
-int valid_username(char **user_arr, char *username, int max_client);
+int valid_username(sock_t **sock_arr, char *username, int max_client);

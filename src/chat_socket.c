@@ -45,13 +45,17 @@ ssize_t send_fd(int fd, char* message)
     return bytes_sent;
 }
 
-int shutdown_fd(int fd)
+int shutdown_socket(sock_t *sock)
 {
-    if (shutdown(fd, SHUT_RDWR) < 0)
+    if (shutdown(sock->fd, SHUT_RDWR) < 0)
     {
         perror("Shutdown failure");
         return -1;
     }
+
+    if (sock->ssl) SSL_free(sock->ssl);
+    if (sock->ctx) SSL_CTX_free(sock->ctx);
+    if (sock->buffer) free(sock->buffer);
 
     return 0;
 }
@@ -153,20 +157,20 @@ ssize_t send_ssl(SSL *ssl, char *message)
     return bytes_sent;
 }
 
-ssize_t chat_send(int fd, SSL *ssl, char *packet)
+ssize_t chat_send(sock_t *sock, char *packet)
 {
-    if (ssl != NULL)
-        return send_ssl(ssl, packet);
+    if (sock->ssl != NULL)
+        return send_ssl(sock->ssl, packet);
     else
-        return send_fd(fd, packet);
+        return send_fd(sock->fd, packet);
 }
 
-ssize_t chat_read(int fd, SSL *ssl, char *buffer)
+ssize_t chat_read(sock_t *sock, char *buffer)
 {
-    if (ssl != NULL)
-        return read_ssl(ssl, buffer);
+    if (sock->ssl != NULL)
+        return read_ssl(sock->ssl, buffer);
     else
-        return read_fd(fd, buffer);
+        return read_fd(sock->fd, buffer);
 }
 
 char* form_packet(char **packet, ...)
@@ -174,6 +178,7 @@ char* form_packet(char **packet, ...)
     va_list args;
     char *arg;
 
+    *packet = NULL;
     va_start(args, packet);
     arg = va_arg(args, char*);
 

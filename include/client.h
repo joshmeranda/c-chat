@@ -9,10 +9,11 @@
  *
  * @param address Address of the server to connect to.
  * @param port The port of the server to connect to.
+ * @param sock The sock to modify.
  * @param env Establish am ssl enabled socket.
  * @return The sock_info describing the client socket.
  */
-sock_t start_client(char* address, uint16_t port, int enc);
+sock_t start_client(char* address, uint16_t port, sock_t *sock, int enc);
 
 /**
  * Connect a client to a server.
