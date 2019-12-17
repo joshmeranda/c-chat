@@ -167,7 +167,7 @@ ssize_t chat_send(sock_t *sock, char *packet)
 
 ssize_t chat_read(sock_t *sock, char *buffer)
 {
-    if (sock->ssl != NULL)
+    if (sock->ssl)
         return read_ssl(sock->ssl, buffer);
     else
         return read_fd(sock->fd, buffer);

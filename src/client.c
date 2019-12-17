@@ -6,6 +6,8 @@
 #include <string.h>
 #include <libnet.h>
 #include <signal.h>
+#include <curses.h>
+#include <client_ui.h>
 
 sock_t start_client(char* address, uint16_t port, sock_t *sock, int enc)
 {
@@ -68,13 +70,14 @@ void connect_client(sock_t *sock, int enc)
 
 void prompt(char *username)
 {
-    printf("%s > ", username);
+    printw("%s > ", username);
+    refresh();
 }
 
 void run_client(char *address, int port, char *username, int enc)
 {
     sock_t sock;
-    char *src = username;
+    wdata_t *ui_data = malloc(sizeof(wdata_t));
     pthread_t r_th = -1;
 
     // start client as unconnected
@@ -83,15 +86,26 @@ void run_client(char *address, int port, char *username, int enc)
 
     // read user input until they enter '.exit' or exit signal received
     signal(SIGINT, handle_signal);
+
+    // setup ui data
+    initscr();
+    ui_data->offset = 0;
+    ui_data->count = 0;
+    ui_data->size = getmaxy(stdscr);
+    ui_data->data = calloc(ui_data->size, sizeof(char*));
+    ui_data->sock = NULL;
+
     while (exit_received == 0)
     {
         char input[1024], *cmd, *dest, *msg;
-        memset(input, 0, 1024);
+        bzero(input, 1024);
+
+        update_screen(ui_data);
 
         // get user command
         prompt(username);
-        fgets(input, 1024, stdin);
-        input[strcspn(input, "\n")] = '\0';
+        getstr(input);
+        if (input[0] == 0) continue;
 
         cmd = strtok(input, " ");
 
@@ -100,7 +114,8 @@ void run_client(char *address, int port, char *username, int enc)
         {
             if (sock.fd == -1)
             {
-                printf("You are not connected to anyone.\n");
+                // printf("You are not connected to anyone.\n");
+                update_data(ui_data, "You are not connected to anyone.");
                 continue;
             }
 
@@ -109,7 +124,7 @@ void run_client(char *address, int port, char *username, int enc)
             dest = strtok(NULL, " ");
             msg = strtok(NULL, "\0");
 
-            client_send(&sock, dest, src, msg);
+            client_send(&sock, dest, msg);
         }
         else if (strcmp(".exit", cmd) == 0) // close connection, leave shell loop
         {
@@ -124,36 +139,45 @@ void run_client(char *address, int port, char *username, int enc)
         {
             if (sock.fd != -1)
             {
-                printf("You are already connected\n");
+                // printf("You are already connected\n");
+                update_data(ui_data, "You are already connected");
                 continue;
             }
 
-            sock = start_client(address, (uint16_t) port, &sock, enc);
+            start_client(address, (uint16_t) port, &sock, enc);
 
             connect_client(&sock, enc);
 
+            ui_data->sock = &sock;
+
             // Start new thread for reading from socket
-            pthread_create(&r_th, NULL, client_read, &sock);
+            pthread_create(&r_th, NULL, client_read, ui_data);
 
             // Send initial username packet
-            client_send(&sock, src, NULL, NULL);
+            client_send(&sock, sock.username, NULL);
         }
         else if (strcmp(".disconnect", cmd) == 0) // close connection, stay in shell loop
         {
             if (sock.fd != -1) {
                 disconnect_client(&sock, r_th);
+                ui_data->sock = NULL;
                 r_th = -1;
             }
         }
         else if (strcmp(".list", cmd) == 0)
         {
-            client_send(&sock, "LIST", src, NULL);
+            client_send(&sock, "LIST", NULL);
         }
         else
         {
-            printf("unsupported command %s\n", cmd);
+            // printf("unsupported command %s\n", cmd);
+            update_data(ui_data, "Unsupported command.");
         }
     }
+
+    endwin();
+    free(ui_data->data);
+    free(ui_data);
 
     if (sock.ctx != NULL) SSL_CTX_free(sock.ctx);
 }
@@ -172,11 +196,11 @@ void disconnect_client(sock_t *sock, pthread_t th)
     }
 }
 
-ssize_t client_send(sock_t *sock, char *dest, char *src, char *msg)
+ssize_t client_send(sock_t *sock, char *dest, char *msg)
 {
     char* packet = NULL;
 
-    form_packet(&packet, dest, src, msg, NULL);
+    form_packet(&packet, dest, sock->username, msg, NULL);
 
     int bytes_sent = chat_send(sock, packet);
 
@@ -184,16 +208,17 @@ ssize_t client_send(sock_t *sock, char *dest, char *src, char *msg)
     return bytes_sent;
 }
 
-void *client_read(void *sock)
+void *client_read(void *data)
 {
-    sock_t *c_sock = (sock_t*) sock;
+    wdata_t *wdata = (wdata_t*) data;
+    sock_t *sock = wdata->sock;
 
     while (1) {
-        int bytes_read = chat_read(c_sock, c_sock->buffer);
+        int bytes_read = chat_read(sock, sock->buffer);
 
         if (bytes_read > 0)
         {
-            printf("%s\n", c_sock->buffer);
+            update_data(data, sock->buffer);
         }
         else
         {

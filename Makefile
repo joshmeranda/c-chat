@@ -1,10 +1,9 @@
 CC=gcc
-PTHREADL=-pthread
-SSLL=-lssl -lcrypto
-CFLAGS=-g -Wall $(PTHREADL) $(SSLL)
+LLIB=-pthread -lssl -lcrypto -lcurses
+CFLAGS=-g -Wall $(LLIB)
 LFLAGS=-Iinclude -g -Wall
 EXECUTABLE=chat
-SRC=$(addprefix src/, chat.c chat_socket.c client.c server.c log.c)
+SRC=$(addprefix src/, chat.c chat_socket.c client.c server.c log.c client_ui.c)
 OBJ=$(SRC:.c=.o)
 
 all: $(EXECUTABLE)
