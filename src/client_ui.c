@@ -38,7 +38,15 @@ void update_screen(wdata_t *data)
         char *msg = data->data[i] + strlen(src) + strlen(DELIMITER);
         msg = get_next_section(&msg);
 
-        printw("%s: %s\n", src, msg);
+        if (! *msg)
+        {
+            printw("%s\n", src);
+        }
+        else    // client messages (ie invalid such command)
+        {
+            printw("%s : %s\n", src, msg);
+        }
+
         refresh();
 
         i = (i == data->size - 1) ? 0 : i + 1;
